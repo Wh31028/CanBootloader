@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ap.h"
+#include "hw_def.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,6 +41,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+CAN_HandleTypeDef hcan1;
+
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart3_rx;
 
@@ -52,13 +55,19 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_CAN1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+CAN_FilterTypeDef canFilter1;
+CAN_RxHeaderTypeDef canRxHeader;
+CAN_TxHeaderTypeDef canTxHeader;
+uint8_t can1Rx0Data[8];
+uint32_t TxMailBox;
+uint8_t can1Tx0Data[8];
 /* USER CODE END 0 */
 
 /**
@@ -70,6 +79,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 
+  volatile uint8_t can1_rx0_flag = 0 ;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -92,17 +102,72 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART3_UART_Init();
+  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
-  hwInit();
-  apInit();
-  apMain();
+  canFilter1.FilterMaskIdHigh = 0x0000; // 마스크를 0으로 하면 ID 상관없이 다 받음
+  canFilter1.FilterIdHigh = 0x0000;
+  canFilter1.FilterMaskIdLow = 0x0000;
+  canFilter1.FilterIdLow = 0x0000;
+  canFilter1.FilterMode = CAN_FILTERMODE_IDMASK;
+  canFilter1.FilterScale = CAN_FILTERSCALE_32BIT; // 32비트 스케일 추천
+  canFilter1.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  canFilter1.FilterBank = 0;
+  canFilter1.FilterActivation = ENABLE;
+
+  HAL_CAN_ConfigFilter(&hcan1, &canFilter1);
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+  HAL_CAN_Start(&hcan1);
+
+  // hwInit();
+  // apInit();
+  // apMain();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  
+  uint32_t last_tx_tick = 0;
   while (1)
   {
+    if(can1_rx0_flag)
+    {
+      can1_rx0_flag = 0;
+      // 수신 데이터 처리 로직...
+    }
+
+    /* 송신 처리 부분 (수정됨) */
+    // 현재 시간(HAL_GetTick)과 마지막 전송 시간의 차이가 1000ms(1초) 이상이면 실행
+    if(HAL_GetTick() - last_tx_tick >= 1000)
+    {
+      last_tx_tick = HAL_GetTick(); // 시간 갱신
+
+      // 1. 헤더 설정 (ID: 0x102)
+      canTxHeader.StdId = 0x102;
+      canTxHeader.RTR = CAN_RTR_DATA;
+      canTxHeader.IDE = CAN_ID_STD;
+      canTxHeader.DLC = 8;
+      canTxHeader.TransmitGlobalTime = DISABLE;
+
+      // 2. 데이터 변경 (값이 바뀌는 것을 확인하기 위함)
+      for(int i=0; i<8; i++) can1Tx0Data[i]++;
+
+      // 3. 메시지 전송
+      // 메일박스 가용 레벨 확인 (선택 사항이나 안전을 위해 체크하면 좋음)
+      if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
+      {
+          if (HAL_CAN_AddTxMessage(&hcan1, &canTxHeader, can1Tx0Data, &TxMailBox) == HAL_OK)
+          {
+              // 전송 성공 시: 초록색 LED (PD12) 토글
+              HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); 
+          }
+          else
+          {
+              // 전송 실패 시(Mailbox 꽉 참 등): 주황색 LED (PD13) 켜기 (에러 표시)
+              HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET); 
+          }
+      }
+    }
 
     /* USER CODE END WHILE */
 
@@ -154,6 +219,43 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN1_Init(void)
+{
+
+  /* USER CODE BEGIN CAN1_Init 0 */
+
+  /* USER CODE END CAN1_Init 0 */
+
+  /* USER CODE BEGIN CAN1_Init 1 */
+
+  /* USER CODE END CAN1_Init 1 */
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 420;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_14TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_5TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = ENABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN1_Init 2 */
+
+  /* USER CODE END CAN1_Init 2 */
+
 }
 
 /**
@@ -214,11 +316,18 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
@@ -233,7 +342,40 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  CAN_RxHeaderTypeDef rxHeader;
+  uint8_t rxData[8];
 
+  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK)
+  {
+    if (rxHeader.StdId == 0x100)
+    {
+      uint8_t cmd = rxData[0]; // 첫 번째 바이트는 명령어
+
+      switch(cmd)
+      {
+        case 0x10: // FW_START
+          // 파란색 LED 켜기 (전송 시작 알림)
+          HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET); 
+          // 여기서 나중에 Flash Erase를 수행함
+          break;
+
+        case 0x20: // FW_DATA
+          // 주황색 LED 토글 (데이터 받는 중)
+          HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
+          // rxData[1] ~ rxData[7]까지 버퍼에 저장하는 코드 필요
+          break;
+
+        case 0x30: // FW_END
+          // 파란색 LED 끄기 (전송 끝)
+          HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_RESET);
+          // 여기서 나중에 부트로더 점프 수행
+          break;
+      }
+    }
+  }
+}
 /* USER CODE END 4 */
 
 /**
