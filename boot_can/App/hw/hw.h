@@ -7,6 +7,7 @@
 #include "uart.h"
 #include "cli.h"
 #include "flash.h"
+#include "can.h"
 
 bool hwInit(void);
 

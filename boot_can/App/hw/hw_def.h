@@ -17,6 +17,9 @@
 #define      HW_CLI_LINE_HIS_MAX    8
 #define      HW_CLI_LINE_BUF_MAX    64
 
+#define _USE_HW_CAN
+#define      HW_CAN_MAX_CH          1
+
 #define _USE_HW_FLASH
 #define _USE_MAC
 

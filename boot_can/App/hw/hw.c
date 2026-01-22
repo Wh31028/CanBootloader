@@ -9,6 +9,7 @@ bool hwInit(void)
   cliInit();
   ledInit();
   flashInit();
+  
   uartInit();
   for (int i=0; i<UART_MAX_CH; i++)
   {
@@ -18,6 +19,8 @@ bool hwInit(void)
   logPrintf("Booting..Clock\t: %d Mhz\r\n", (int)HAL_RCC_GetSysClockFreq()/1000000);
   logPrintf("\n");
 
+  canInit();
+  
   return true;
 }
 

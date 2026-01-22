@@ -104,20 +104,6 @@ int main(void)
   MX_USART3_UART_Init();
   MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
-  // canFilter1.FilterMaskIdHigh = 0x0000; // 마스크를 0으로 하면 ID 상관없이 다 받음
-  // canFilter1.FilterIdHigh = 0x0000;
-  // canFilter1.FilterMaskIdLow = 0x0000;
-  // canFilter1.FilterIdLow = 0x0000;
-  // canFilter1.FilterMode = CAN_FILTERMODE_IDMASK;
-  // canFilter1.FilterScale = CAN_FILTERSCALE_32BIT; // 32비트 스케일 추천
-  // canFilter1.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  // canFilter1.FilterBank = 0;
-  // canFilter1.FilterActivation = ENABLE;
-
-  // HAL_CAN_ConfigFilter(&hcan1, &canFilter1);
-  // HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
-
-  // HAL_CAN_Start(&hcan1);
 
   hwInit();
   apInit();
@@ -127,47 +113,9 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint32_t last_tx_tick = 0;
   while (1)
   {
-    if(can1_rx0_flag)
-    {
-      can1_rx0_flag = 0;
-      // 수신 데이터 처리 로직...
-    }
-
-    /* 송신 처리 부분 (수정됨) */
-    // 현재 시간(HAL_GetTick)과 마지막 전송 시간의 차이가 1000ms(1초) 이상이면 실행
-    if(HAL_GetTick() - last_tx_tick >= 1000)
-    {
-      last_tx_tick = HAL_GetTick(); // 시간 갱신
-
-      // 1. 헤더 설정 (ID: 0x102)
-      canTxHeader.StdId = 0x102;
-      canTxHeader.RTR = CAN_RTR_DATA;
-      canTxHeader.IDE = CAN_ID_STD;
-      canTxHeader.DLC = 8;
-      canTxHeader.TransmitGlobalTime = DISABLE;
-
-      // 2. 데이터 변경 (값이 바뀌는 것을 확인하기 위함)
-      for(int i=0; i<8; i++) can1Tx0Data[i]++;
-
-      // 3. 메시지 전송
-      // 메일박스 가용 레벨 확인 (선택 사항이나 안전을 위해 체크하면 좋음)
-      if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
-      {
-          if (HAL_CAN_AddTxMessage(&hcan1, &canTxHeader, can1Tx0Data, &TxMailBox) == HAL_OK)
-          {
-              // 전송 성공 시: 초록색 LED (PD12) 토글
-              HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); 
-          }
-          else
-          {
-              // 전송 실패 시(Mailbox 꽉 참 등): 주황색 LED (PD13) 켜기 (에러 표시)
-              HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET); 
-          }
-      }
-    }
+    
 
     /* USER CODE END WHILE */
 
@@ -200,7 +148,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 168;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -237,11 +185,11 @@ static void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 420;
-  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.Prescaler = 3;
+  hcan1.Init.Mode = CAN_MODE_LOOPBACK;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_14TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_5TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
