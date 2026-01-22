@@ -104,24 +104,24 @@ int main(void)
   MX_USART3_UART_Init();
   MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
-  canFilter1.FilterMaskIdHigh = 0x0000; // 마스크를 0으로 하면 ID 상관없이 다 받음
-  canFilter1.FilterIdHigh = 0x0000;
-  canFilter1.FilterMaskIdLow = 0x0000;
-  canFilter1.FilterIdLow = 0x0000;
-  canFilter1.FilterMode = CAN_FILTERMODE_IDMASK;
-  canFilter1.FilterScale = CAN_FILTERSCALE_32BIT; // 32비트 스케일 추천
-  canFilter1.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  canFilter1.FilterBank = 0;
-  canFilter1.FilterActivation = ENABLE;
+  // canFilter1.FilterMaskIdHigh = 0x0000; // 마스크를 0으로 하면 ID 상관없이 다 받음
+  // canFilter1.FilterIdHigh = 0x0000;
+  // canFilter1.FilterMaskIdLow = 0x0000;
+  // canFilter1.FilterIdLow = 0x0000;
+  // canFilter1.FilterMode = CAN_FILTERMODE_IDMASK;
+  // canFilter1.FilterScale = CAN_FILTERSCALE_32BIT; // 32비트 스케일 추천
+  // canFilter1.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  // canFilter1.FilterBank = 0;
+  // canFilter1.FilterActivation = ENABLE;
 
-  HAL_CAN_ConfigFilter(&hcan1, &canFilter1);
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+  // HAL_CAN_ConfigFilter(&hcan1, &canFilter1);
+  // HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-  HAL_CAN_Start(&hcan1);
+  // HAL_CAN_Start(&hcan1);
 
-  // hwInit();
-  // apInit();
-  // apMain();
+  hwInit();
+  apInit();
+  apMain();
 
   /* USER CODE END 2 */
 

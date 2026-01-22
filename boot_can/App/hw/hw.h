@@ -6,6 +6,7 @@
 #include "led.h"
 #include "uart.h"
 #include "cli.h"
+#include "flash.h"
 
 bool hwInit(void);
 

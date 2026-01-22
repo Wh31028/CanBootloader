@@ -87,8 +87,8 @@ void ledCmd(cli_args_t *args)
         ledToggle(_DEF_LED2);
 
         test_cnt++;
-        cliPrintf("led test\n");
-        cliPrintf("  cnt : %d\n",test_cnt);
+        cliPrintf("led test\n\r");
+        cliPrintf("  cnt : %d\n\r",test_cnt);
 
         cliMoveUp(2);
       }
@@ -102,7 +102,7 @@ void ledCmd(cli_args_t *args)
 
   if(!ret)
   {
-    logPrintf("led test\n");
+    logPrintf("led test\n\r");
   }
   
 }

@@ -17,6 +17,9 @@
 #define      HW_CLI_LINE_HIS_MAX    8
 #define      HW_CLI_LINE_BUF_MAX    64
 
+#define _USE_HW_FLASH
+#define _USE_MAC
+
 #define logPrintf printf
 
 void delay(uint32_t ms);

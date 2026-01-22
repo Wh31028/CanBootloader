@@ -6,16 +6,25 @@
 #include "uart.h"
 
 
+#ifdef _USE_MAC
+#define CLI_KEY_BACK              0x7F
+#define CLI_KEY_DEL               0x7E
+#define CLI_KEY_HOME              0x48
+#define CLI_KEY_END               0x46
+#else
 #define CLI_KEY_BACK              0x08
 #define CLI_KEY_DEL               0x7F
+#define CLI_KEY_HOME              0x31
+#define CLI_KEY_END               0x34
+#endif
+
 #define CLI_KEY_ENTER             0x0D
 #define CLI_KEY_ESC               0x1B
 #define CLI_KEY_LEFT              0x44
 #define CLI_KEY_RIGHT             0x43
 #define CLI_KEY_UP                0x41
 #define CLI_KEY_DOWN              0x42
-#define CLI_KEY_HOME              0x31
-#define CLI_KEY_END               0x34
+
 
 #define CLI_PROMPT_STR            "cli# "
 
