@@ -4,7 +4,7 @@
 
 #ifdef _USE_HW_CAN
 #include "cli.h"
-
+#include "qbuffer.h"
 
 
 static bool is_init = false;
@@ -13,6 +13,8 @@ static bool is_init = false;
 //-- CAN 핸들 선언
 //
 extern CAN_HandleTypeDef hcan1;
+static qbuffer_t q_rx;
+static can_msg_t q_rx_msg[64];
 
 //-- 함수 선언
 //
@@ -33,6 +35,7 @@ bool canInit(void)
 {
   bool ret = true;
 
+  qbufferCreateBySize(&q_rx, (uint8_t *)&q_rx_msg[0], sizeof(can_msg_t), 64);
 
   //-- Callback 등록
   //
@@ -111,75 +114,120 @@ bool canInitFilter(void)
   return ret;
 }
 
+// --- [API 구현] AP 폴더에서 사용할 함수들 ---
+
+// 수신된 메시지 개수 확인
+uint32_t canAvailable(void)
+{
+  return qbufferAvailable(&q_rx);
+}
+
+// 메시지 읽기 (꺼내오기)
+bool canMsgRead(can_msg_t *p_msg)
+{
+  return qbufferRead(&q_rx, (uint8_t *)p_msg, 1);
+}
+
+// 메시지 보내기 (비글본으로 ACK 보낼 때 사용)
+bool canMsgWrite(uint32_t id, uint8_t *p_data, uint8_t len)
+{
+  CAN_TxHeaderTypeDef tx_header;
+  uint32_t tx_mailbox;
+  
+  if (!is_init) return false;
+
+  // FOTA에서는 주로 Extended ID (0x100 등)를 사용한다고 가정
+  tx_header.ExtId = id;
+  tx_header.IDE   = CAN_ID_EXT;
+  tx_header.RTR   = CAN_RTR_DATA;
+  tx_header.DLC   = len;
+  tx_header.TransmitGlobalTime = DISABLE;
+
+  if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
+  {
+    if (HAL_CAN_AddTxMessage(&hcan1, &tx_header, p_data, &tx_mailbox) == HAL_OK)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+// -------------------------------------------
+
 //-- Fifo 콜백 함수
 //
-static bool is_received = false;
-static CAN_RxHeaderTypeDef rx_header;
-static uint8_t rx_buf[8];
 
 void canFifoCallback(CAN_HandleTypeDef *p_hcan)
 {
-  if (HAL_CAN_GetRxMessage(p_hcan, CAN_RX_FIFO0, &rx_header, rx_buf) == HAL_OK)
+  CAN_RxHeaderTypeDef rx_header;
+  can_msg_t can_msg;
+
+
+  if (p_hcan->Instance == CAN1)
   {
-    is_received = true;
+    if (HAL_CAN_GetRxMessage(p_hcan, CAN_RX_FIFO0, &rx_header, can_msg.data) == HAL_OK)
+    {
+      can_msg.id = rx_header.IDE == CAN_ID_STD ? rx_header.StdId:rx_header.ExtId;
+      can_msg.id_type = rx_header.IDE == CAN_ID_STD ? CAN_STD:CAN_EXT;
+      can_msg.dlc = rx_header.DLC;
+
+      qbufferWrite(&q_rx, (uint8_t *)&can_msg, 1);
+    }
   }
 }
-
 #ifdef _USE_HW_CLI
 void cliCmd(cli_args_t *args)
 {
   bool ret = false;
 
-
   if (args->argc == 1 && args->isStr(0, "info"))
   {
-    cliPrintf("is_init : %s\n", is_init ? "true":"false");
+    cliPrintf("is_init : %s\n\r", is_init ? "true":"false");
+    cliPrintf("q_avail : %d\n\r", canAvailable());
     ret = true;
   }
 
-  //-- Send 명령 시험
-  //
-  if (args->argc == 1 && args->isStr(0, "send"))
+  // send 0x100 1 2 3 ...
+  if (args->argc >= 3 && args->isStr(0, "send"))
   {
-    CAN_TxHeaderTypeDef tx_header;
-    uint32_t tx_mailbox;
-    uint8_t tx_buf[8];
+    uint32_t id = (uint32_t)args->getData(1);
+    uint8_t  len = 0;
+    uint8_t  data[8];
 
-    tx_header.ExtId = 100 & 0x1FFFFFFF;
-    tx_header.IDE   = CAN_ID_EXT;
-    tx_header.DLC   = 1;
-    tx_header.RTR   = CAN_RTR_DATA;
-    tx_header.TransmitGlobalTime = DISABLE;
-
-    tx_buf[0] = 1;
-
-    is_received = false;
-    if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
+    for(int i=0; i<8; i++)
     {
-      if(HAL_CAN_AddTxMessage(&hcan1, &tx_header, tx_buf, &tx_mailbox) == HAL_OK)
+      if (args->argc > (2+i))
       {
-        cliPrintf("send ok\n");
+        data[i] = (uint8_t)args->getData(2+i);
+        len++;
       }
     }
+    
+    if (canMsgWrite(id, data, len))
+      cliPrintf("Send OK\n\r");
+    else
+      cliPrintf("Send Fail\n\r");
+
     ret = true;
   }
 
-  //-- Read 명령 시험
-  //
   if (args->argc == 1 && args->isStr(0, "read"))
   {
-    if (is_received)
+    while(canAvailable() > 0)
     {
-      is_received = false;
-      cliPrintf("type %s id %d,  dlc %d, data[0]=%d\n",
-               rx_header.IDE == CAN_ID_STD ? "STD":"EXT",
-               rx_header.IDE == CAN_ID_STD ? rx_header.StdId:rx_header.ExtId,
-               rx_header.DLC,
-               rx_buf[0]);
-    }
-    else
-    {
-      cliPrintf("No Message\n");
+      can_msg_t msg;
+      canMsgRead(&msg);
+      
+      cliPrintf("Rx ID:0x%X Type:%s DLC:%d Data:", 
+                msg.id, 
+                msg.id_type == CAN_STD ? "STD":"EXT", 
+                msg.dlc);
+      
+      for(int i=0; i<msg.dlc; i++)
+      {
+        cliPrintf("0x%02X ", msg.data[i]);
+      }
+      cliPrintf("\n\r");
     }
     ret = true;
   }
@@ -187,9 +235,7 @@ void cliCmd(cli_args_t *args)
   if (ret == false)
   {
     cliPrintf("can info\n\r");
-    //-- Send/Read 명령
-    //
-    cliPrintf("can send\n\r");
+    cliPrintf("can send [id] [data1] ...\n\r");
     cliPrintf("can read\n\r");
   }
 }
