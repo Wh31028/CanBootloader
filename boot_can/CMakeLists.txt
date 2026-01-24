@@ -44,6 +44,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 file(GLOB SRC_FILES CONFIGURE_DEPENDS
   App/ap/*.c
+  App/ap/boot_can/*.c
   App/common/src/*.c
   App/hw/*.c
   App/hw/src/*.c   
@@ -59,6 +60,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     App/ap
+    App/ap/boot_can
     App/common
     App/common/include
     App/hw
@@ -82,7 +84,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
 target_compile_options(${CMAKE_PROJECT_NAME}  PRIVATE
   -Wno-expansion-to-defined
-  -Os
+   -O0 #디버깅용
+  #-Os  최적화
 )
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} 
   POST_BUILD

@@ -23,6 +23,14 @@
 #define _USE_HW_FLASH
 #define _USE_MAC
 
+#define FLASH_ADDR_FW               0x8010000       //64k 뒤에 있음
+
+#define FLASH_ADDR_START            0x8010000
+#define FLASH_ADDR_END              (FLASH_ADDR_START + (512-64)*1024)
+
+#define FLASH_ADDR_FW_MAX_LEN       (1024 * 960)
+
+
 #define logPrintf printf
 
 void delay(uint32_t ms);
