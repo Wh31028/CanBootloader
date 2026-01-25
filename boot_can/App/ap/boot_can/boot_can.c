@@ -4,9 +4,10 @@
 #include <stdbool.h>
 
 // 비글본 파이썬 코드와 맞춘 명령어
-#define CMD_FW_START  0x10
-#define CMD_FW_DATA   0x20
-#define CMD_FW_END    0x30
+#define CMD_FW_START      0x10
+#define CMD_FW_DATA       0x20
+#define CMD_FW_END        0x30
+#define CMD_FW_JUMP_TO_FW 0x40
 
 
 
@@ -21,6 +22,9 @@ static void SendResponse(uint8_t cmd, uint8_t result);
 static void bootFlashErase(can_msg_t *msg);
 static void bootFlashWrite(can_msg_t *msg);
 static void bootFlashEnd(can_msg_t *msg);
+static void bootJumpToFw(can_msg_t *msg);
+static bool bootVerifyFw(void);
+static void JumpToFw(void);
 
 void bootInit(void)
 {
@@ -30,7 +34,7 @@ void bootInit(void)
 void bootProcess(void)
 {
   // 1. CAN 메시지가 왔는지 확인 (qbuffer 덕분에 안전함)
-  if (canAvailable() > 0)
+  while (canAvailable() > 0)
   {
     can_msg_t msg;
     canMsgRead(&msg); // 큐에서 하나 꺼냄
@@ -50,6 +54,9 @@ void bootProcess(void)
         case CMD_FW_END:
           bootFlashEnd(&msg);
           break;
+        case CMD_FW_JUMP_TO_FW:
+          bootJumpToFw(&msg);
+          break;
 
       }
     }
@@ -58,6 +65,7 @@ void bootProcess(void)
 
 void bootFlashErase(can_msg_t *msg)
 {
+  fw_addr = FLASH_ADDR_FW;
   uint8_t status = BOOT_OK;
   uint32_t rx_size = 0;
   // [시작] 플래시 지우기 & 초기화
@@ -113,10 +121,18 @@ void bootFlashWrite(can_msg_t *msg)
 void bootFlashEnd(can_msg_t *msg)
 {
   uint8_t status = BOOT_OK;
+
+  // 버퍼에 남은 데이터가 있다면
   if (boot_idx > 0)
   {
-    // 남은 크기만큼만 기록 (나머지 공간은 0xFF 또는 0x00 채움 처리가 필요할 수도 있음)
-    // flashWrite 함수가 4바이트 정렬을 처리해준다고 가정
+    // [핵심] 4바이트 정렬 맞추기 (나머지 공간을 0xFF로 채움)
+    // 예: 데이터가 1바이트 남았으면 3바이트를 0xFF로 채워서 4바이트로 만듦
+    while((boot_idx % 4) != 0)
+    {
+      boot_buf[boot_idx++] = 0xFF;
+    }
+
+    // 이제 boot_idx는 무조건 4의 배수임
     if(flashWrite(fw_addr, boot_buf, boot_idx) == true)
     {
       status = BOOT_OK;
@@ -127,9 +143,60 @@ void bootFlashEnd(can_msg_t *msg)
     }
   }
 
-  // 2. 최종 완료 응답 전송
   SendResponse(CMD_FW_END, status);
 }
+
+static void bootJumpToFw(can_msg_t *msg)
+{
+  uint8_t status = BOOT_OK;
+  if(bootVerifyFw() == true)
+  {
+    SendResponse(CMD_FW_JUMP_TO_FW, status);
+    delay(100);
+    JumpToFw();
+  }
+  else 
+  {
+    status=BOOT_ERR_FLASH_JUMP;
+    SendResponse(CMD_FW_JUMP_TO_FW, status);
+  }
+
+}
+
+bool bootVerifyFw(void)
+{
+  uint32_t *jump_addr= (uint32_t *)(FLASH_ADDR_START + 4);
+
+  if ((*jump_addr) >= FLASH_ADDR_START && 
+      (*jump_addr) < FLASH_ADDR_END)
+  {
+    return true;
+  }
+  else 
+  {
+    return false;
+  }
+}
+
+void JumpToFw(void)
+{
+  void (**jump_func)(void) = (void(**)(void))(FLASH_ADDR_START + 4);
+
+  bspDeInit();
+
+  __disable_irq();
+
+  //벡터 테이블 위치를 앱의 시작 주소로 변경
+  // 이걸 안 하면 앱에서 인터럽트 켜는 순간 죽습니다.
+  SCB->VTOR = FLASH_ADDR_START;
+
+  //  메인 스택 포인터(MSP)를 앱의 스택 시작점으로 변경
+  //    (FLASH_ADDR_START 번지에는 스택 주소가 들어있음)
+  __set_MSP(*(__IO uint32_t*)FLASH_ADDR_START);
+  
+  (*jump_func)();
+}
+
 
 
 // 응답을 보내는 함수 추가

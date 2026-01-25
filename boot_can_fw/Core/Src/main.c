@@ -86,6 +86,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+  __enable_irq();
 
   /* USER CODE END SysInit */
 

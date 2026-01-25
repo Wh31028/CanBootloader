@@ -12,5 +12,6 @@
 bool hwInit(void);
 
 
+void bspDeInit(void);
 
 #endif

@@ -103,16 +103,28 @@ bool flashWrite(uint32_t addr, uint8_t *p_data, uint32_t length)
   bool ret = true;
   HAL_StatusTypeDef status;
 
+  // 안전장치: 4의 배수가 아니면 쓰지 않고 에러 반환
+  if (length % 4 != 0)
+  {
+    return false;
+  }
 
   HAL_FLASH_Unlock();
 
-  for (int i=0; i<length; i+=1)
+  // 4바이트씩 건너뛰며 반복
+  for (int i = 0; i < length; i += 4)
   {
-    uint16_t data;
+    uint32_t data32;
 
-    data  = p_data[i+0] << 0;
+    // 4개의 1바이트를 -> 1개의 32비트 변수로 합침 (Little Endian)
+    data32 =  (uint32_t)p_data[i+0] << 0  |
+              (uint32_t)p_data[i+1] << 8  |
+              (uint32_t)p_data[i+2] << 16 |
+              (uint32_t)p_data[i+3] << 24;
 
-    status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, addr + i, (uint64_t)data);
+    // FLASH_TYPEPROGRAM_WORD (4바이트) 모드로 기록
+    status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr + i, (uint64_t)data32);
+    
     if (status != HAL_OK)
     {
       ret = false;

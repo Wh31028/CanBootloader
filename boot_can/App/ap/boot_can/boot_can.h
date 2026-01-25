@@ -7,6 +7,7 @@
 #define BOOT_OK                  0x00
 #define BOOT_ERR_FLASH_ERASE     0x03
 #define BOOT_ERR_FLASH_WRITE     0x04
+#define BOOT_ERR_FLASH_JUMP      0x05
 
 
 void bootInit(void);

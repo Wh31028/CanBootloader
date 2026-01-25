@@ -24,6 +24,24 @@ bool hwInit(void)
   return true;
 }
 
+void bspDeInit(void)
+{
+  uartDeInit();        
+  HAL_RCC_DeInit();
+
+  //Disable Interrupts
+  //
+  for(int i=0;i<8;i++)
+  {
+    NVIC->ICER[i] = 0xFFFFFFFF;
+    __DSB();                               
+    __ISB();
+  }
+
+  SysTick->CTRL = 0;
+
+}
+
 
 void delay(uint32_t ms)
 {

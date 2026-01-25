@@ -123,7 +123,6 @@ def send_firmware(filename):
 
         # 너무 빠르면 STM32 수신 버퍼 오버플로우 날 수 있으므로 아주 약간 딜레이
         time.sleep(0.002) 
-
     print("\n -> Data Transmission Complete.")
 
     # ---------------------------------------------------------
@@ -138,10 +137,24 @@ def send_firmware(filename):
         print("\n[SUCCESS] Firmware Update Finished Successfully!")
     else:
         print("\n[Warning] No ACK for End command (Maybe device rebooted immediately?)")
+    
+    # ---------------------------------------------------------
+    # 4. [FW_JUMP] 펌웨어 실행 명령 (0x40)
+    # ---------------------------------------------------------
+    print("4. Sending Jump Command...")
+    CMD_FW_JUMP_TO_FW = 0x40
+    
+    cmd_jump = [CMD_FW_JUMP_TO_FW, 0, 0, 0, 0, 0, 0, 0]
+    
+    # 점프 명령을 보내고 ACK를 기다림
+    if send_packet_with_ack(bus, cmd_jump, timeout=2.0):
+        print("\n[SUCCESS] Jump Command Accepted! Application should start now.")
+    else:
+        print("\n[Warning] No ACK for Jump command (Maybe device jumped too fast?)")
 
 if __name__ == "__main__":
     # 테스트용 파일 이름 (실제 bin 파일 이름으로 바꾸세요)
-    fw_filename = "firmware.bin"
+    fw_filename = "boot_can_fw.bin"
     
     # 파일이 없으면 테스트용 더미 파일 생성
     if not os.path.exists(fw_filename):
