@@ -1,6 +1,7 @@
 #include "boot_can.h"
 #include "can.h"   // 작성하신 CAN 드라이버 포함
 #include "flash.h" 
+#include <stdbool.h>
 
 // 비글본 파이썬 코드와 맞춘 명령어
 #define CMD_FW_START  0x10
@@ -18,6 +19,8 @@ static uint32_t fw_addr = FLASH_ADDR_FW; // App 시작 주소 (모델에 따라 
 
 static void SendResponse(uint8_t cmd, uint8_t result);
 static void bootFlashErase(can_msg_t *msg);
+static void bootFlashWrite(can_msg_t *msg);
+static void bootFlashEnd(can_msg_t *msg);
 
 void bootInit(void)
 {
@@ -32,7 +35,7 @@ void bootProcess(void)
     can_msg_t msg;
     canMsgRead(&msg); // 큐에서 하나 꺼냄
 
-    // FOTA용 ID인지 확인 (예: 0x100)
+    // FOTA용 ID인지 확인
     if (msg.id == 0x100)
     {
       uint8_t cmd = msg.data[0];
@@ -41,6 +44,13 @@ void bootProcess(void)
         case CMD_FW_START:
           bootFlashErase(&msg);
           break;
+        case CMD_FW_DATA:
+          bootFlashWrite(&msg);
+          break;
+        case CMD_FW_END:
+          bootFlashEnd(&msg);
+          break;
+
       }
     }
   }
@@ -69,6 +79,56 @@ void bootFlashErase(can_msg_t *msg)
   SendResponse(CMD_FW_START, status);
   // LED 켜기 (진행 중 표시)
 
+}
+
+void bootFlashWrite(can_msg_t *msg)
+{
+  uint8_t status = BOOT_OK;
+  for(int i=1;i<msg->dlc;i++)
+  {
+    boot_buf[boot_idx++] = msg->data[i];
+    
+    if(boot_idx >= BOOT_BUF_SIZE)
+    {
+      if(flashWrite(fw_addr, boot_buf, BOOT_BUF_SIZE) == true)
+      {
+        status = BOOT_OK;
+        fw_addr+=BOOT_BUF_SIZE;
+        boot_idx = 0;
+
+        SendResponse(CMD_FW_DATA, status);
+      }
+      else 
+      {
+        status = BOOT_ERR_FLASH_WRITE;
+        SendResponse(CMD_FW_DATA, status);
+        return;
+      }
+      
+    }
+  }
+  
+}
+
+void bootFlashEnd(can_msg_t *msg)
+{
+  uint8_t status = BOOT_OK;
+  if (boot_idx > 0)
+  {
+    // 남은 크기만큼만 기록 (나머지 공간은 0xFF 또는 0x00 채움 처리가 필요할 수도 있음)
+    // flashWrite 함수가 4바이트 정렬을 처리해준다고 가정
+    if(flashWrite(fw_addr, boot_buf, boot_idx) == true)
+    {
+      status = BOOT_OK;
+    }
+    else
+    {
+      status = BOOT_ERR_FLASH_WRITE;
+    }
+  }
+
+  // 2. 최종 완료 응답 전송
+  SendResponse(CMD_FW_END, status);
 }
 
 

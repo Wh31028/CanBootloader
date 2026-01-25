@@ -3,164 +3,152 @@ import time
 import os
 import struct
 
-# --- 설정 ---
-BUS_INTERFACE = 'can0' # can0 또는 can1 (ifconfig로 확인한 이름)
-TARGET_ID     = 0x100  # 비글본 -> STM32 (명령)
-RESPONSE_ID   = 0x101  # STM32 -> 비글본 (응답)
+# --- 설정 (환경에 맞게 수정하세요) ---
+BUS_INTERFACE = 'can0'  # ifconfig로 확인한 CAN 인터페이스 이름
+TARGET_ID     = 0x100   # 보낼 때 ID (비글본 -> STM32)
+RESPONSE_ID   = 0x101   # 받을 때 ID (STM32 -> 비글본)
 
 CMD_FW_START  = 0x10
 CMD_FW_DATA   = 0x20
 CMD_FW_END    = 0x30
 
-FLASH_PAGE_SIZE = 256  # STM32 플래시 쓰기 단위
+FLASH_PAGE_SIZE = 256   # STM32 플래시 페이지 크기
 
-def send_packet_with_ack(bus, data, timeout=1.0, retries=3):
+def wait_for_ack(bus, expected_cmd, timeout=2.0):
     """
-    데이터를 보내고 ACK(ID 0x101)를 기다리는 함수
+    특정 명령어에 대한 ACK(성공 응답)만 기다리는 함수
     """
-    msg = can.Message(arbitration_id=TARGET_ID, data=data, is_extended_id=True)
-
-    for attempt in range(retries):
-        try:
-            # 1. 메시지 전송
-            bus.send(msg)
-            
-            # 2. ACK 대기
-            # 타임아웃 시간 동안 들어오는 메시지를 계속 확인
-            start_time = time.time()
-            while (time.time() - start_time) < timeout:
-                rx_msg = bus.recv(timeout=0.1) # 0.1초씩 끊어서 확인
+    start_time = time.time()
+    while (time.time() - start_time) < timeout:
+        rx_msg = bus.recv(timeout=0.1) # 0.1초씩 끊어서 확인
+        
+        if rx_msg and rx_msg.arbitration_id == RESPONSE_ID:
+            # 데이터 구조: [명령어, 결과코드]
+            if len(rx_msg.data) >= 2:
+                cmd = rx_msg.data[0]
+                result = rx_msg.data[1]
                 
-                if rx_msg and rx_msg.arbitration_id == RESPONSE_ID:
-                    # 응답 포맷: [명령어, 결과(0:OK, 1:ERR)]
-                    cmd = rx_msg.data[0]
-                    result = rx_msg.data[1]
-                    
-                    if cmd == data[0] and result == 0:
-                        return True # 성공
-                    elif result != 0:
-                        print(f"ERROR: STM32 reported error (Code: {result}). Retrying...")
-                        break # 재전송 시도
-
-        except can.CanError:
-            print("CAN Bus Error.")
-            time.sleep(0.1)
-
-    print("FATAL: Failed to get ACK after max retries.")
+                # 기대한 명령어에 대한 성공(0) 응답인지 확인
+                if cmd == expected_cmd and result == 0:
+                    return True
+                elif cmd == expected_cmd and result != 0:
+                    print(f" [Error] STM32 returned error code: {result}")
+                    return False
     return False
 
+def send_packet_with_ack(bus, data, timeout=2.0):
+    """
+    명령을 보내고 바로 ACK를 기다리는 함수 (START, END 용)
+    """
+    msg = can.Message(arbitration_id=TARGET_ID, data=data, is_extended_id=True)
+    try:
+        bus.send(msg)
+        return wait_for_ack(bus, data[0], timeout)
+    except can.CanError:
+        print(" [Error] CAN Send Failed")
+        return False
+
 def send_firmware(filename):
-    # 0. CAN 버스 초기화
+    # 0. CAN 연결
     try:
         bus = can.interface.Bus(channel=BUS_INTERFACE, bustype='socketcan')
-        print(f"Connected to {BUS_INTERFACE}")
+        print(f"[Info] Connected to {BUS_INTERFACE}")
     except OSError:
-        print(f"Error: Could not open {BUS_INTERFACE}. Check 'ifconfig'.")
+        print(f"[Error] Could not open {BUS_INTERFACE}. Check if interface is UP.")
         return
 
-    # 1. 파일 확인
     if not os.path.exists(filename):
-        print(f"Error: {filename} not found.")
+        print(f"[Error] File not found: {filename}")
         return
 
     file_size = os.path.getsize(filename)
     with open(filename, "rb") as f:
         firmware_blob = f.read()
 
-    print(f"--- FOTA Start ---")
-    print(f"File: {filename}, Size: {file_size} bytes")
+    print(f"--- FOTA Start : {filename} ({file_size} bytes) ---")
 
     # ---------------------------------------------------------
-    # 2. [FW_START] 전송 (파일 크기 포함)
+    # 1. [FW_START] 전송 (파일 크기 포함, Flash Erase 수행)
     # ---------------------------------------------------------
-    print("1. Sending Start Command & Erasing Flash...")
-    
-    # 패킷 구조: [CMD(0x10)] + [Reserved(3byte)] + [Size(4byte, Little Endian)]
-    # <B: 1byte, 3x: 3byte padding, I: 4byte int
+    print("1. Sending Start Command (Erasing Flash...)")
+    # [CMD] + [Reserved 3bytes] + [Size 4bytes]
     cmd_start = struct.pack('<B3xI', CMD_FW_START, file_size)
     
-    # 지우는 시간 고려하여 타임아웃 길게 설정 (5초)
+    # Erase 시간 고려하여 타임아웃 5초 설정
     if not send_packet_with_ack(bus, list(cmd_start), timeout=5.0):
-        print("Failed to start FOTA.")
+        print(" [Fail] Start command failed or timed out.")
         return
+    print(" -> Erase Complete & Start OK.")
 
     # ---------------------------------------------------------
-    # 3. [FW_DATA] 데이터 전송 (256바이트 단위 동기화)
+    # 2. [FW_DATA] 데이터 전송 (256바이트마다 ACK 대기)
     # ---------------------------------------------------------
     print("2. Sending Firmware Data...")
     
-    total_sent = 0
-    ack_trigger_count = 0 
+    total_sent = 0       # 전체 전송량
+    page_buffer_acc = 0  # 현재 페이지(256) 누적량
     
-    # 7바이트씩 잘라서 전송
+    # 7바이트씩 잘라서 루프
     for i in range(0, len(firmware_blob), 7):
         chunk = firmware_blob[i : i + 7]
         payload = list(chunk)
         
-        # 7바이트보다 작으면 뒤에 0으로 채움 (마지막 패킷)
+        # 마지막 패킷 패딩 (0으로 채움, STM32 로직상 필수는 아니지만 안전하게)
         while len(payload) < 7:
             payload.append(0)
 
-        # 패킷 생성: [CMD(0x20)] + [Data(7bytes)]
+        # 패킷 전송: [CMD(0x20)] + [DATA 7bytes]
         can_data = [CMD_FW_DATA] + payload
-        
-        # 일반 전송 (ACK 없이 보냄)
         msg = can.Message(arbitration_id=TARGET_ID, data=can_data, is_extended_id=True)
         bus.send(msg)
         
-        # --- ACK 확인 로직 ---
-        # STM32는 버퍼(256바이트)가 꽉 찰 때마다 Flash에 쓰고 ACK를 보냄.
-        # 따라서 우리도 보낸 데이터 누적량이 256을 넘을 때마다 ACK를 확인해야 함.
+        # 카운트 증가
+        page_buffer_acc += len(chunk) # 실제 데이터 길이만큼 증가
         total_sent += len(chunk)
-        ack_trigger_count += len(chunk)
 
-        if ack_trigger_count >= FLASH_PAGE_SIZE:
-            # 256바이트 이상 보냈으니, STM32가 쓰고 ACK를 보냈을 것임.
-            # 여기서 ACK를 기다림. (이미 보낸 데이터에 대한 확인)
-            print(f"   -> Flashing page... ({total_sent}/{file_size})")
+        # ★ 동기화 핵심 로직 ★
+        # STM32는 버퍼가 256바이트 꽉 차면 Flash에 쓰고 ACK를 보냄.
+        # 우리도 누적량이 256 이상이면 ACK를 기다려야 함.
+        if page_buffer_acc >= FLASH_PAGE_SIZE:
+            # print(f"   Waiting for ACK (Page Write)... {total_sent}/{file_size}")
             
-            # 주의: send_packet_with_ack 함수는 '보내고' 기다리는 함수임.
-            # 여기서는 이미 보냈고 '기다리기만' 해야 하므로 recv 로직만 따로 필요하지만,
-            # 코드를 단순화하기 위해 타임아웃 내에 수신 버퍼에서 ACK를 찾는 방식을 사용.
-            
-            # 간단한 ACK 대기 (재전송 로직 없이 대기만)
-            ack_received = False
-            start_wait = time.time()
-            while time.time() - start_wait < 1.0: # 1초 대기
-                rx_msg = bus.recv(timeout=0.1)
-                if rx_msg and rx_msg.arbitration_id == RESPONSE_ID:
-                    if rx_msg.data[0] == CMD_FW_DATA and rx_msg.data[1] == 0:
-                        ack_received = True
-                        break
-            
-            if not ack_received:
-                print("Error: Missing ACK for Page Write!")
+            if wait_for_ack(bus, CMD_FW_DATA, timeout=1.5):
+                # 성공 시 누적 카운터에서 256 차감 (STM32 버퍼가 비워짐)
+                # 남은 값은 다음 페이지의 시작 데이터가 됨
+                page_buffer_acc -= FLASH_PAGE_SIZE 
+                print(f"\r -> Progress: {total_sent}/{file_size} bytes ({(total_sent/file_size)*100:.1f}%)", end='')
+            else:
+                print("\n [Error] Missing ACK for Page Write! Stopping.")
                 return
-            
-            ack_trigger_count -= FLASH_PAGE_SIZE # 카운터 초기화
-            
-        time.sleep(0.005) # 전송 안정성을 위한 미세 딜레이
+
+        # 너무 빠르면 STM32 수신 버퍼 오버플로우 날 수 있으므로 아주 약간 딜레이
+        time.sleep(0.002) 
+
+    print("\n -> Data Transmission Complete.")
 
     # ---------------------------------------------------------
-    # 4. [FW_END] 전송 (나머지 굽기 & 점프)
+    # 3. [FW_END] 종료 명령 (나머지 데이터 Flush & Reboot)
     # ---------------------------------------------------------
-    print("3. Sending End Command & Jumping...")
+    print("3. Sending End Command...")
     
+    # 데이터 없는 순수 명령 패킷
     cmd_end = [CMD_FW_END, 0, 0, 0, 0, 0, 0, 0]
     
-    if send_packet_with_ack(bus, cmd_end, timeout=2.0):
-        print("\n[Done] Firmware Update Success! Device should satisfy reboot.")
+    if send_packet_with_ack(bus, cmd_end, timeout=3.0):
+        print("\n[SUCCESS] Firmware Update Finished Successfully!")
     else:
-        print("\n[Fail] Device did not acknowledge End command.")
+        print("\n[Warning] No ACK for End command (Maybe device rebooted immediately?)")
 
 if __name__ == "__main__":
-    # 테스트용 더미 파일 생성 (없으면)
-    dummy_filename = "test_fw.bin"
-    if not os.path.exists(dummy_filename):
-        print(f"Creating dummy file: {dummy_filename}")
-        with open(dummy_filename, "wb") as f:
-            # 1KB 짜리 더미 데이터
-            for i in range(1024):
+    # 테스트용 파일 이름 (실제 bin 파일 이름으로 바꾸세요)
+    fw_filename = "firmware.bin"
+    
+    # 파일이 없으면 테스트용 더미 파일 생성
+    if not os.path.exists(fw_filename):
+        print(f"File {fw_filename} not found. Creating dummy file for test...")
+        with open(fw_filename, "wb") as f:
+            # 1024 + 50 바이트 (딱 안 떨어지게 테스트)
+            for i in range(1074): 
                 f.write(struct.pack('B', i % 256))
-        
-    send_firmware(dummy_filename)
+                
+    send_firmware(fw_filename)

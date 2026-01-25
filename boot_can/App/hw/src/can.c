@@ -241,38 +241,38 @@ void cliCmd(cli_args_t *args)
 }
 #endif
 
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
-  CAN_RxHeaderTypeDef rxHeader;
-  uint8_t rxData[8];
-  can_msg_t msg;
+// void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+// {
+//   CAN_RxHeaderTypeDef rxHeader;
+//   uint8_t rxData[8];
+//   can_msg_t msg;
 
-  // 1. 하드웨어(FIFO 0)에서 메시지 읽어오기
-  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) != HAL_OK)
-  {
-    return; // 에러 나면 그냥 리턴
-  }
+//   // 1. 하드웨어(FIFO 0)에서 메시지 읽어오기
+//   if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) != HAL_OK)
+//   {
+//     return; // 에러 나면 그냥 리턴
+//   }
 
-  // 2. 읽어온 데이터를 우리 구조체(can_msg_t)에 옮겨 담기
-  //    (STM32 HAL 구조체 -> 사용자 정의 구조체 변환)
-  msg.id  = (rxHeader.IDE == CAN_ID_STD) ? rxHeader.StdId : rxHeader.ExtId;
-  msg.dlc = rxHeader.DLC;
+//   // 2. 읽어온 데이터를 우리 구조체(can_msg_t)에 옮겨 담기
+//   //    (STM32 HAL 구조체 -> 사용자 정의 구조체 변환)
+//   msg.id  = (rxHeader.IDE == CAN_ID_STD) ? rxHeader.StdId : rxHeader.ExtId;
+//   msg.dlc = rxHeader.DLC;
   
-  // 데이터 복사 (최대 8바이트)
-  for (int i=0; i<8; i++)
-  {
-    msg.data[i] = rxData[i];
-  }
+//   // 데이터 복사 (최대 8바이트)
+//   for (int i=0; i<8; i++)
+//   {
+//     msg.data[i] = rxData[i];
+//   }
 
-  // 확장 ID 여부, RTR 등도 필요하면 복사 (구조체 정의에 따라 다름)
-  // msg.format = (rxHeader.IDE == CAN_ID_STD) ? CAN_STD : CAN_EXT;
-  // msg.type   = (rxHeader.RTR == CAN_RTR_DATA) ? CAN_DATA : CAN_REMOTE;
+//   // 확장 ID 여부, RTR 등도 필요하면 복사 (구조체 정의에 따라 다름)
+//   // msg.format = (rxHeader.IDE == CAN_ID_STD) ? CAN_STD : CAN_EXT;
+//   // msg.type   = (rxHeader.RTR == CAN_RTR_DATA) ? CAN_DATA : CAN_REMOTE;
 
 
-  // 3. 큐(Ring Buffer)에 집어넣기 ★★★ (가장 중요!)
-  //    이걸 해야 bootProcess()에서 canAvailable() > 0 이 됩니다.
-  //    (can_rx_q 변수 이름은 can.c 위에 정의된 qbuffer 변수명을 쓰세요)
-  qbufferWrite(&q_rx, (uint8_t *)&msg, 1);
-}
+//   // 3. 큐(Ring Buffer)에 집어넣기 ★★★ (가장 중요!)
+//   //    이걸 해야 bootProcess()에서 canAvailable() > 0 이 됩니다.
+//   //    (can_rx_q 변수 이름은 can.c 위에 정의된 qbuffer 변수명을 쓰세요)
+//   qbufferWrite(&q_rx, (uint8_t *)&msg, 1);
+// }
 
 #endif
