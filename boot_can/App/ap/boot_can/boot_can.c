@@ -16,6 +16,7 @@
 static uint8_t  boot_buf[BOOT_BUF_SIZE];
 static uint16_t boot_idx = 0;
 static uint32_t fw_addr = FLASH_ADDR_FW; // App 시작 주소 (모델에 따라 다름)
+static uint32_t original_fw_size = 0; //  원본 파일 크기 저장용 (CRC 계산용)
 
 
 static void SendResponse(uint8_t cmd, uint8_t result);
@@ -25,6 +26,7 @@ static void bootFlashEnd(can_msg_t *msg);
 static void bootJumpToFw(can_msg_t *msg);
 static bool bootVerifyFw(void);
 static void JumpToFw(void);
+static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length);
 
 void bootInit(void)
 {
@@ -76,6 +78,9 @@ void bootFlashErase(can_msg_t *msg)
   rx_size |= (uint32_t)msg->data[6] << 16;
   rx_size |= (uint32_t)msg->data[7] << 24;
 
+  // 시작할때 파일 크기를 저장
+  original_fw_size = rx_size;
+
   // 안전장치: 크기가 0이거나 너무 크면 기본값 사용 (선택 사항)
   if (rx_size == 0 || rx_size > FLASH_ADDR_FW_MAX_LEN) 
   {
@@ -121,6 +126,16 @@ void bootFlashWrite(can_msg_t *msg)
 void bootFlashEnd(can_msg_t *msg)
 {
   uint8_t status = BOOT_OK;
+  uint32_t received_crc = 0;
+
+  // 1. BeagleBone이 보낸 4바이트 CRC 값 파싱 (Little Endian)
+  if (msg->dlc >= 5) 
+  {
+    received_crc = (uint32_t)msg->data[1] << 0  |
+                   (uint32_t)msg->data[2] << 8  |
+                   (uint32_t)msg->data[3] << 16 |
+                   (uint32_t)msg->data[4] << 24;
+  }
 
   // 버퍼에 남은 데이터가 있다면
   if (boot_idx > 0)
@@ -142,6 +157,21 @@ void bootFlashEnd(can_msg_t *msg)
       status = BOOT_ERR_FLASH_WRITE;
     }
   }
+  // 3. 플래시 쓰기가 성공했다면, 전체 CRC 검증 시작
+  if (status == BOOT_OK)
+  {
+    // 기록된 펌웨어의 총 길이 계산 
+    // 패딩이 추가된 플래시 전체 길이가 아니라, 원래 펌웨어 크기만큼만 CRC 계산!
+    uint32_t calculated_crc = calculate_crc32(FLASH_ADDR_FW, original_fw_size);
+
+    // 4. CRC 비교
+    if (calculated_crc == received_crc) {
+      status = BOOT_OK; // 무결성 검증 완료!
+    } else {
+      status = BOOT_ERR_CRC; // 파일 깨짐 발생! (A방식의 한계)
+    }
+  }
+
 
   SendResponse(CMD_FW_END, status);
 }
@@ -208,4 +238,21 @@ void SendResponse(uint8_t cmd, uint8_t result)
 
     // ID 0x101로 응답 전송
     canMsgWrite(0x101, data, 2);
+}
+
+static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length) 
+{
+    uint32_t crc = 0xFFFFFFFF;
+    uint8_t *data = (uint8_t *)start_addr;
+
+    for (uint32_t i = 0; i < length; i++) 
+    {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++) 
+        {
+            if (crc & 1) crc = (crc >> 1) ^ 0xEDB88320;
+            else crc >>= 1;
+        }
+    }
+    return ~crc;
 }
