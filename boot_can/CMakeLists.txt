@@ -84,8 +84,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
 target_compile_options(${CMAKE_PROJECT_NAME}  PRIVATE
   -Wno-expansion-to-defined
-   -O0 #디버깅용
-  #-Os  최적화
+  #-Os  #최적화
+  -O0 #디버깅용
 )
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} 
   POST_BUILD

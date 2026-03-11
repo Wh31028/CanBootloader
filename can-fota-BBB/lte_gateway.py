@@ -2,9 +2,10 @@ import os
 import time
 import struct
 import socket
-import urllib.request # [핵심] requests 대신 파이썬 내장 모듈 사용
-import ssl            # HTTPS 인증서 무시용
+import urllib.request
+import ssl
 import zlib
+import random  # [추가] 결함 주입을 위한 난수 생성 라이브러리
 
 # ==========================================
 # FOTA 서버 및 CAN 설정
@@ -20,6 +21,9 @@ CMD_FW_JUMP_TO_FW = 0x40
 CAN_ID_RESP       = 0x101 
 CAN_ID_CMD        = 0x100 
 
+# 테스트용 패킷 로스율 (0.05 = 5% 확률로 데이터 증발)
+LOSS_RATE         = 0.05 
+
 # ==========================================
 # 1. LTE 다운로드 (urllib 사용)
 # ==========================================
@@ -29,7 +33,6 @@ def download_firmware_via_lte(url, save_path):
     print(f" URL: {url}")
     print(f"=============================================")
     try:
-        # ngrok https 인증서 오류 무시 설정 (verify=False 와 동일)
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -47,7 +50,7 @@ def download_firmware_via_lte(url, save_path):
         return False
 
 # ==========================================
-# 2. Native SocketCAN 통신 (이하 동일)
+# 2. Native SocketCAN 통신 (결함 주입 포함)
 # ==========================================
 def build_can_frame(can_id, data_list):
     data_bytes = bytes(data_list)
@@ -73,6 +76,8 @@ def wait_ack(bus, timeout=2.0):
 
 def start_can_fota(firmware_path):
     print(f"[CAN] Native SocketCAN FOTA Flashing 시작: {firmware_path}")
+    print(f"[TEST] 🚨 결함 주입 모드 활성화 (Loss Rate: {LOSS_RATE*100}%) 🚨")
+    
     try:
         bus = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
         bus.bind(('can0',))
@@ -96,9 +101,31 @@ def start_can_fota(firmware_path):
 
     idx = 0
     buffer_accumulated = 0 
+    
     while idx < fw_size:
         chunk = fw_data[idx : idx + 7]
         payload = [CMD_FW_DATA] + list(chunk)
+        
+        # ==========================================
+        # 🚨 [핵심] 고의 패킷 누락 로직 🚨
+        # ==========================================
+        if random.random() < LOSS_RATE:
+            print(f"[Fault] 💥 고의로 패킷 드랍! (Index: {idx}) -> STM32는 이 데이터를 못 받음")
+            # 전송(bus.send)을 생략하고 인덱스만 증가시킴
+            data_len = len(chunk)
+            idx += data_len
+            buffer_accumulated += data_len
+            
+            # 버퍼가 256바이트 찼다고 비글본은 착각하고 ACK를 기다리게 됨
+            if buffer_accumulated >= 256:
+                if not wait_ack(bus):
+                    print(f"\n[CAN] ❌ Error: Data Write ACK Fail (Timeout) at index {idx}")
+                    print("[System] STM32가 패킷 누락으로 인해 256바이트를 채우지 못해 응답하지 않습니다. (벽돌 상태)")
+                    return
+                buffer_accumulated = 0
+            continue
+        # ==========================================
+
         bus.send(build_can_frame(CAN_ID_CMD, payload))
         
         data_len = len(chunk)
@@ -107,12 +134,13 @@ def start_can_fota(firmware_path):
         
         if buffer_accumulated >= 256:
             if not wait_ack(bus):
-                print(f"[CAN] Error: Data Write ACK Fail at index {idx}")
+                print(f"\n[CAN] ❌ Error: Data Write ACK Fail at index {idx}")
+                print("[System] 통신이 어긋나서 플래싱에 실패했습니다.")
                 return
             buffer_accumulated = 0 
         time.sleep(0.001)
 
-    print("[CAN] 데이터 전송 완료")
+    print("\n[CAN] 데이터 전송 완료 (과연 STM32가 정상적으로 다 받았을까요?)")
     print("[CAN] 전체 펌웨어 CRC32 계산 중...")
     fw_crc32 = zlib.crc32(fw_data) & 0xFFFFFFFF
     
@@ -120,7 +148,7 @@ def start_can_fota(firmware_path):
     bus.send(build_can_frame(CAN_ID_CMD, end_data))
     
     if not wait_ack(bus):
-        print("[CAN] Error: CRC 불일치 또는 End ACK Fail!")
+        print("[CAN] ❌ Error: CRC 불일치! (데이터가 깨지거나 밀림)")
         return
     print("[CAN] 펌웨어 무결성 검증 통과 및 플래싱 완료!")
 
@@ -129,7 +157,6 @@ def start_can_fota(firmware_path):
     print("[CAN] 점프 명령 전송 완료!")
 
 if __name__ == '__main__':
-    # CAN 인터페이스 활성화
     os.system("sudo ip link set can0 down 2>/dev/null")
     os.system("sudo ip link set can0 up type can bitrate 1000000 2>/dev/null")
     
