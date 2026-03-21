@@ -12,5 +12,6 @@
 
 void bootInit(void);
 void bootProcess(void); // 메인 루프에서 계속 돌릴 함수
+void bootIsoTpProcessCommand(uint8_t *payload, uint16_t size);
 
 #endif

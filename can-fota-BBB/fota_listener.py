@@ -23,7 +23,7 @@ def on_message(client, userdata, msg):
             print("[System] FOTA 업데이트 명령을 확인했습니다. 플래싱을 시작합니다!")
             
             # 방금 성공했던 CAN FOTA 스크립트를 즉시 실행!
-            os.system("sudo python3 lte_gateway.py")
+            os.system("sudo python3 isotp_lte_gateway.py")
             
             print("[System] FOTA 프로세스 종료. 다시 대기 모드로 돌아갑니다.")
     except Exception as e:

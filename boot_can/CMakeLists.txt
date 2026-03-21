@@ -45,6 +45,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 file(GLOB SRC_FILES CONFIGURE_DEPENDS
   App/ap/*.c
   App/ap/boot_can/*.c
+  App/ap/boot_can/iso15765/*.c
   App/common/src/*.c
   App/hw/*.c
   App/hw/src/*.c   
@@ -61,6 +62,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     App/ap
     App/ap/boot_can
+    App/ap/boot_can/iso15765
     App/common
     App/common/include
     App/hw
