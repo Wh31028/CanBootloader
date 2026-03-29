@@ -15,7 +15,8 @@ set(CMAKE_C_EXTENSIONS ON)
 
 # Define the build type
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug")
+    set(CMAKE_BUILD_TYPE "MinSizeRel")
+    #set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
 # Set the project name
@@ -84,8 +85,15 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
 target_compile_options(${CMAKE_PROJECT_NAME}  PRIVATE
   -Wno-expansion-to-defined
-  -Os  #최적화
+  -Os  # 용량 최적화 (Optimize for Size)
   #-O0 #디버깅용
+  -ffunction-sections # 미사용 함수 잘라내기용 섹션 분리
+  -fdata-sections
+)
+
+# 플래시 용량을 극한으로 줄이는 링커 옵션 추가!
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+  -Wl,--gc-sections   # 호출되지 않는 쓰레기 함수/변수 삭제 (Garbage Collection)
 )
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} 
   POST_BUILD
