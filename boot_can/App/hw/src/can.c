@@ -1,14 +1,10 @@
 #include "can.h"
 
-
-
 #ifdef _USE_HW_CAN
 #include "cli.h"
 #include "qbuffer.h"
 
-
 static bool is_init = false;
-
 
 //-- CAN 핸들 선언
 //
@@ -21,15 +17,9 @@ static can_msg_t q_rx_msg[64];
 static void canFifoCallback(CAN_HandleTypeDef *_hcan);
 static bool canInitFilter(void);
 
-
 #ifdef _USE_HW_CLI
 static void cliCmd(cli_args_t *args);
 #endif
-
-
-
-
-
 
 bool canInit(void)
 {
@@ -42,7 +32,8 @@ bool canInit(void)
 
   HAL_StatusTypeDef status;
 
-  status = HAL_CAN_RegisterCallback(&hcan1, HAL_CAN_RX_FIFO0_MSG_PENDING_CB_ID, canFifoCallback);
+  status = HAL_CAN_RegisterCallback(&hcan1, HAL_CAN_RX_FIFO0_MSG_PENDING_CB_ID,
+                                    canFifoCallback);
   if (status != HAL_OK)
   {
     ret &= false;
@@ -51,14 +42,11 @@ bool canInit(void)
   //-- 인터럽트 활성화
   //
   uint32_t enable_int;
-  
-  enable_int = CAN_IT_RX_FIFO0_MSG_PENDING |
-               CAN_IT_BUSOFF |
-               CAN_IT_ERROR_WARNING |
-               CAN_IT_ERROR_PASSIVE |
-               CAN_IT_LAST_ERROR_CODE |
-               CAN_IT_ERROR;
-  status = HAL_CAN_ActivateNotification(&hcan1, enable_int);
+
+  enable_int = CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_BUSOFF |
+               CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE |
+               CAN_IT_LAST_ERROR_CODE | CAN_IT_ERROR;
+  status     = HAL_CAN_ActivateNotification(&hcan1, enable_int);
   if (status != HAL_OK)
   {
     ret &= false;
@@ -70,14 +58,14 @@ bool canInit(void)
 
   //-- CAN 하드웨어 시작
   //
-    if (HAL_CAN_Start(&hcan1) != HAL_OK)
+  if (HAL_CAN_Start(&hcan1) != HAL_OK)
   {
     ret &= false;
   }
 
   is_init = ret;
 
-  logPrintf("[%s] canInit()\n", is_init ? "OK":"E_");
+  logPrintf("[%s] canInit()\n", is_init ? "OK" : "E_");
 
 #ifdef _USE_HW_CLI
   cliAdd("can", cliCmd);
@@ -89,9 +77,8 @@ bool canInit(void)
 //
 bool canInitFilter(void)
 {
-  bool              ret = false;
+  bool ret = false;
   CAN_FilterTypeDef sFilterConfig;
-
 
   sFilterConfig.FilterBank           = 0;
   sFilterConfig.FilterScale          = CAN_FILTERSCALE_32BIT;
@@ -117,10 +104,7 @@ bool canInitFilter(void)
 // --- [API 구현] AP 폴더에서 사용할 함수들 ---
 
 // 수신된 메시지 개수 확인
-uint32_t canAvailable(void)
-{
-  return qbufferAvailable(&q_rx);
-}
+uint32_t canAvailable(void) { return qbufferAvailable(&q_rx); }
 
 // 메시지 읽기 (꺼내오기)
 bool canMsgRead(can_msg_t *p_msg)
@@ -133,14 +117,15 @@ bool canMsgWrite(uint32_t id, uint8_t *p_data, uint8_t len)
 {
   CAN_TxHeaderTypeDef tx_header;
   uint32_t tx_mailbox;
-  
-  if (!is_init) return false;
+
+  if (!is_init)
+    return false;
 
   // FOTA에서는 주로 Extended ID (0x100 등)를 사용한다고 가정
-  tx_header.ExtId = id;
-  tx_header.IDE   = CAN_ID_EXT;
-  tx_header.RTR   = CAN_RTR_DATA;
-  tx_header.DLC   = len;
+  tx_header.ExtId              = id;
+  tx_header.IDE                = CAN_ID_EXT;
+  tx_header.RTR                = CAN_RTR_DATA;
+  tx_header.DLC                = len;
   tx_header.TransmitGlobalTime = DISABLE;
 
   if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
@@ -162,14 +147,15 @@ void canFifoCallback(CAN_HandleTypeDef *p_hcan)
   CAN_RxHeaderTypeDef rx_header;
   can_msg_t can_msg;
 
-
   if (p_hcan->Instance == CAN1)
   {
-    if (HAL_CAN_GetRxMessage(p_hcan, CAN_RX_FIFO0, &rx_header, can_msg.data) == HAL_OK)
+    if (HAL_CAN_GetRxMessage(p_hcan, CAN_RX_FIFO0, &rx_header, can_msg.data) ==
+        HAL_OK)
     {
-      can_msg.id = rx_header.IDE == CAN_ID_STD ? rx_header.StdId:rx_header.ExtId;
-      can_msg.id_type = rx_header.IDE == CAN_ID_STD ? CAN_STD:CAN_EXT;
-      can_msg.dlc = rx_header.DLC;
+      can_msg.id =
+          rx_header.IDE == CAN_ID_STD ? rx_header.StdId : rx_header.ExtId;
+      can_msg.id_type = rx_header.IDE == CAN_ID_STD ? CAN_STD : CAN_EXT;
+      can_msg.dlc     = rx_header.DLC;
 
       qbufferWrite(&q_rx, (uint8_t *)&can_msg, 1);
     }
@@ -182,7 +168,7 @@ void cliCmd(cli_args_t *args)
 
   if (args->argc == 1 && args->isStr(0, "info"))
   {
-    cliPrintf("is_init : %s\n\r", is_init ? "true":"false");
+    cliPrintf("is_init : %s\n\r", is_init ? "true" : "false");
     cliPrintf("q_avail : %d\n\r", canAvailable());
     ret = true;
   }
@@ -191,18 +177,18 @@ void cliCmd(cli_args_t *args)
   if (args->argc >= 3 && args->isStr(0, "send"))
   {
     uint32_t id = (uint32_t)args->getData(1);
-    uint8_t  len = 0;
-    uint8_t  data[8];
+    uint8_t len = 0;
+    uint8_t data[8];
 
-    for(int i=0; i<8; i++)
+    for (int i = 0; i < 8; i++)
     {
-      if (args->argc > (2+i))
+      if (args->argc > (2 + i))
       {
-        data[i] = (uint8_t)args->getData(2+i);
+        data[i] = (uint8_t)args->getData(2 + i);
         len++;
       }
     }
-    
+
     if (canMsgWrite(id, data, len))
       cliPrintf("Send OK\n\r");
     else
@@ -213,17 +199,15 @@ void cliCmd(cli_args_t *args)
 
   if (args->argc == 1 && args->isStr(0, "read"))
   {
-    while(canAvailable() > 0)
+    while (canAvailable() > 0)
     {
       can_msg_t msg;
       canMsgRead(&msg);
-      
-      cliPrintf("Rx ID:0x%X Type:%s DLC:%d Data:", 
-                msg.id, 
-                msg.id_type == CAN_STD ? "STD":"EXT", 
-                msg.dlc);
-      
-      for(int i=0; i<msg.dlc; i++)
+
+      cliPrintf("Rx ID:0x%X Type:%s DLC:%d Data:", msg.id,
+                msg.id_type == CAN_STD ? "STD" : "EXT", msg.dlc);
+
+      for (int i = 0; i < msg.dlc; i++)
       {
         cliPrintf("0x%02X ", msg.data[i]);
       }
@@ -240,6 +224,5 @@ void cliCmd(cli_args_t *args)
   }
 }
 #endif
-
 
 #endif

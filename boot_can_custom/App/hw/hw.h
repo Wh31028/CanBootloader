@@ -1,16 +1,15 @@
-#ifndef HW_H_ 
-#define HW_H_ 
+#ifndef HW_H_
+#define HW_H_
 
 #include "hw_def.h"
 
-#include "led.h"
-#include "uart.h"
+#include "can.h"
 #include "cli.h"
 #include "flash.h"
-#include "can.h"
+#include "led.h"
+#include "uart.h"
 
 bool hwInit(void);
-
 
 void bspDeInit(void);
 

@@ -1,6 +1,6 @@
 #include "ap.h"
-#include "uart.h"
 #include "boot_can.h"
+#include "uart.h"
 
 void apInit(void)
 {
@@ -9,10 +9,10 @@ void apInit(void)
   // 1. 부트로더 로직 초기화
   bootInit();
 
-  // (선택) 시작 메시지 출력
-  #ifdef _USE_HW_CLI
+// (선택) 시작 메시지 출력
+#ifdef _USE_HW_CLI
   cliPrintf("[AP] Bootloader Ready...\n");
-  #endif
+#endif
 }
 
 void apMain(void)
@@ -20,14 +20,14 @@ void apMain(void)
   uint32_t pre_time;
 
   pre_time = millis();
-  while(1)
+  while (1)
   {
     bootProcess();
-    if (millis()-pre_time >= 500)
+    if (millis() - pre_time >= 500)
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);
     }
     cliMain();
   }
-} 
+}
