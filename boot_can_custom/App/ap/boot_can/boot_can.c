@@ -16,6 +16,7 @@ static uint64_t rx_block_map            = 0;
 static uint8_t expected_frames_in_block = 37; // 256/7 = 36.57 -> 37프레임
 
 static void SendResponse(uint8_t cmd, uint8_t result_or_seq);
+static void SendNackMap(uint64_t map);
 static void bootProcessStart(can_msg_t *msg);
 static void bootProcessData(can_msg_t *msg, uint8_t seq);
 static void bootProcessEnd(can_msg_t *msg);
@@ -135,38 +136,28 @@ static void bootProcessData(can_msg_t *msg, uint8_t seq)
   // 3. 기대하는 모든 프레임을 수신했는지 확인
   uint64_t target_map = (1ULL << expected_frames_in_block) - 1;
 
-  // 마지막 시퀀스 번호 체크
-  if (seq == (expected_frames_in_block - 1))
+  if ((rx_block_map & target_map) == target_map)
   {
-    if ((rx_block_map & target_map) == target_map)
+    // 모두 정상 수신됨 -> 플래시 기록
+    if (flashWrite(fw_addr, boot_buf, BOOT_BUF_SIZE) == true)
     {
-      // 모두 정상 수신됨 -> 플래시 기록
-      if (flashWrite(fw_addr, boot_buf, BOOT_BUF_SIZE) == true)
-      {
-        fw_addr += BOOT_BUF_SIZE;
-        total_received_bytes += block_expected_bytes;
-        rx_block_map = 0;
-
-        memset(boot_buf, 0xFF, BOOT_BUF_SIZE);
-        SendResponse(CMD_TX_ACK, 0); // 블록 완료 ACK
-      }
-      else
-      {
-        SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_WRITE);
-      }
+      fw_addr              += BOOT_BUF_SIZE;
+      total_received_bytes += block_expected_bytes;
+      rx_block_map         = 0;
+      
+      memset(boot_buf, 0xFF, BOOT_BUF_SIZE);
+      SendResponse(CMD_TX_ACK, 0); // 블록 완료 ACK
     }
     else
     {
-      // 중간 이빨 빠짐 탐지 (Selective NACK)
-      for (uint8_t i = 0; i < expected_frames_in_block; i++)
-      {
-        if ((rx_block_map & (1ULL << i)) == 0)
-        {
-          SendResponse(CMD_TX_NACK, i); // 누락된 첫 번째 seq 요청
-          return;
-        }
-      }
+      SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_WRITE);
     }
+  }
+  // 만약 마지막 프레임이 도착했는데도 전체 출석부가 덜 찼다면
+  else if (seq == (expected_frames_in_block - 1))
+  {
+    // 출석부(비트맵) 전체를 8바이트에 담아 1개의 NACK으로 한 방에 묶어서 보고합니다!
+    SendNackMap(rx_block_map);
   }
 }
 
@@ -254,6 +245,23 @@ void SendResponse(uint8_t cmd, uint8_t result_or_seq)
   data[1] = 0x00;
 
   canMsgWrite(0x101, data, 2);
+}
+
+// 출석부 전체 비트맵 정보 한 번에 전송
+static void SendNackMap(uint64_t map)
+{
+  uint8_t data[8];
+  data[0] = PACK_HEADER(CMD_TX_NACK, 0); // 명령어: NACK
+  // 37개의 출석부 비트를 7바이트(56비트) 공간에 여유 있게 꽉 눌러 담음
+  data[1] = (map >> 0)  & 0xFF;
+  data[2] = (map >> 8)  & 0xFF;
+  data[3] = (map >> 16) & 0xFF;
+  data[4] = (map >> 24) & 0xFF;
+  data[5] = (map >> 32) & 0xFF;
+  data[6] = (map >> 40) & 0xFF;
+  data[7] = (map >> 48) & 0xFF;
+
+  canMsgWrite(0x101, data, 8); // 8바이트 꽉꽉 채워서 송신
 }
 
 static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length)
