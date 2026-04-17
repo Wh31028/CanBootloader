@@ -178,13 +178,7 @@ static void bootProcessEnd(can_msg_t *msg)
   {
     status = BOOT_OK;
     SendResponse(CMD_TX_ACK, 0);
-
-    // Auto Jump
-    if (bootVerifyFw() == true)
-    {
-      delay(100);
-      JumpToFw();
-    }
+    // (Auto Jump 삭제: 호스트가 CMD_RX_JUMP를 보낼 때까지 부트로더에서 대기하도록 변경)
   }
   else
   {
@@ -227,8 +221,7 @@ void JumpToFw(void)
   void (**jump_func)(void) = (void (**)(void))(FLASH_ADDR_START + 4);
 
   bspDeInit();
-
-  __disable_irq();
+  __disable_irq(); // 원상복구 (앱에서 __enable_irq()가 있으므로 정상 동작 보장)
 
   SCB->VTOR = FLASH_ADDR_START;
 

@@ -29,8 +29,8 @@
 
 #define FLASH_ADDR_FW_MAX_LEN (1024 * 960)
 
-// #define logPrintf printf // (기존 코드: 무거운 stdlib printf)
-#define logPrintf(...) // (최적화: 부트로더에서는 로그를 비워서 용량 확보)
+#define logPrintf printf // (기존 코드: 무거운 stdlib printf)
+// #define logPrintf(...) // (최적화: 부트로더에서는 로그를 비워서 용량 확보)
 
 void delay(uint32_t ms);
 uint32_t millis(void);
