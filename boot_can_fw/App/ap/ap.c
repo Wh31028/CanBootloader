@@ -1,7 +1,6 @@
 #include "ap.h"
-#include "can.h"
+
 #include "hw_def.h"
-#include "stm32f4xx_hal.h"
 
 // RTC Backup Register에 Magic Number를 기록하고 소프트 리셋
 static void enterFotaMode(void)
