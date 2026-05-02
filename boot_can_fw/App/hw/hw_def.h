@@ -19,6 +19,13 @@
 #define _USE_HW_FLASH
 #define _USE_MAC
 
+#define _USE_HW_CAN
+#define HW_CAN_MAX_CH 1
+
+// FOTA 진입 트리거 CAN ID (BBB → STM32)
+#define CAN_ID_FOTA_REQUEST  0x200UL
+#define FOTA_MAGIC_NUMBER    0xDEADBEEFUL
+
 #define FLASH_ADDR_FW 0x8010000 // 64k 뒤에 있음
 
 #define FLASH_ADDR_START 0x8010000

@@ -1,10 +1,12 @@
 #include "hw.h"
 
+
 bool hwInit(void)
 {
   cliInit();
   ledInit();
   flashInit();
+  canInit();
 
   uartInit();
   for (int i = 0; i < UART_MAX_CH; i++)
