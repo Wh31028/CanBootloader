@@ -6,6 +6,8 @@ import zlib
 import argparse
 import socket
 import os
+import csv
+from datetime import datetime
 
 # 설정
 CAN_INTERFACE = 'can0'
@@ -25,6 +27,67 @@ total_frames_sent = 0
 total_frames_received = 0
 retransmitted_frames = 0
 total_transmission_time = 0.0
+
+CAN_ID_FOTA_REQUEST = 0x200  # App FW에게 FOTA 진입 요청
+
+# 로그 파일 경로
+LOG_DIR     = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH    = os.path.join(LOG_DIR, "fota_results.csv")
+TEXT_LOG    = os.path.join(LOG_DIR, "fota_results.log")
+CSV_HEADERS = [
+    "timestamp", "protocol", "loss_rate_pct", "trial",
+    "fw_size_bytes", "total_time_sec",
+    "tx_frames", "rx_frames", "total_frames",
+    "retransmit_frames", "overhead_pct", "status"
+]
+
+# argparse는 __main__에서 파싱하지만, 글로벌 초기값 설정
+LOSS_RATE      = 0.0
+TARGET_SIZE_KB = 64
+TRIAL_NUM      = 1
+PROTOCOL_NAME  = "RAW_ISO-TP"
+
+def save_result(fw_size, total_time, tx, rx, retx, status="OK"):
+    """결과를 CSV와 텍스트 로그 파일에 저장한다."""
+    overhead_pct = (retx / tx * 100) if tx > 0 else 0.0
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    row = {
+        "timestamp":         ts,
+        "protocol":          PROTOCOL_NAME,
+        "loss_rate_pct":     f"{LOSS_RATE * 100:.2f}",
+        "trial":             TRIAL_NUM,
+        "fw_size_bytes":     fw_size,
+        "total_time_sec":    f"{total_time:.3f}",
+        "tx_frames":         tx,
+        "rx_frames":         rx,
+        "total_frames":      tx + rx,
+        "retransmit_frames": retx,
+        "overhead_pct":      f"{overhead_pct:.2f}",
+        "status":            status,
+    }
+
+    file_exists = os.path.exists(CSV_PATH)
+    with open(CSV_PATH, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_HEADERS)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+    with open(TEXT_LOG, "a") as f:
+        f.write(f"\n{'='*53}\n")
+        f.write(f"  [{ts}] {PROTOCOL_NAME} - Trial {TRIAL_NUM}\n")
+        f.write(f"{'='*53}\n")
+        f.write(f"  Loss Rate    : {LOSS_RATE*100:.2f}%\n")
+        f.write(f"  FW Size      : {fw_size} bytes\n")
+        f.write(f"  Total Time   : {total_time:.3f} sec\n")
+        f.write(f"  TX Frames    : {tx}\n")
+        f.write(f"  RX Frames    : {rx}\n")
+        f.write(f"  Total Frames : {tx + rx}\n")
+        f.write(f"  Retransmit   : {retx} frames ({overhead_pct:.2f}% overhead)\n")
+        f.write(f"  Status       : {status}\n")
+
+    print(f"[LOG] 결과 저장 완료 → {CSV_PATH}")
 
 def build_can_frame(can_id, data_bytes):
     # 8바이트 고정 길이 CAN 페이로드 패딩
@@ -52,6 +115,16 @@ def flush_rx_buffer(bus):
             break
         except Exception:
             break
+
+def trigger_fota_entry(bus):
+    """App FW에 FOTA 진입 신호(CAN 0x200)를 보내고 부트로더 진입을 기다린다."""
+    print("[FOTA] STM32 App FW에 FOTA 진입 신호 전송 중... (CAN ID=0x200)")
+    frame = build_can_frame(CAN_ID_FOTA_REQUEST, bytes([0xDE, 0xAD]))
+    bus.send(frame)
+    print("[FOTA] 신호 전송 완료. 부트로더 진입 대기 중... (3.0초)")
+    time.sleep(3.0)  # STM32 소프트 리셋 + HAL 초기화 + CAN 재동기화 대기
+    flush_rx_buffer(bus)  # 리셋 전 수신된 스토일 데이터 제거
+    print("[FOTA] 부트로더 준비 완료. FOTA 시작!")
 
 def wait_sf_ack(bus, expected_cmd, timeout=3.0):
     global total_frames_received
@@ -146,6 +219,9 @@ def start_can_fota(firmware_path):
         print(f"[CAN] 소켓 초기화 실패: {e}")
         return
 
+    # App FW에 FOTA 진입 신호 전송 후 부트로더 대기
+    trigger_fota_entry(bus)
+
     with open(firmware_path, "rb") as f:
         fw_data = f.read()
         
@@ -205,6 +281,7 @@ def start_can_fota(firmware_path):
             
         if not success:
             print("\n[CAN] 치명적 에러: 지속적인 패킷 유실로 인해 STM32가 응답하지 않음. 타임아웃 발생.")
+            save_result(fw_size, time.time() - fota_start_time, total_frames_sent, total_frames_received, retransmitted_frames, status="FAIL")
             return
 
         idx = min(i + chunk_size, fw_size)
@@ -255,18 +332,25 @@ def start_can_fota(firmware_path):
     time.sleep(0.05)
     print(f"=============================================")
 
+    # 결과 저장 (CSV + 로그)
+    save_result(fw_size, total_transmission_time, total_frames_sent, total_frames_received, retransmitted_frames, status="OK")
+
 if __name__ == "__main__":
     # CAN 하드웨어 소켓 초기화(Bitrate 1,000,000)
     os.system("sudo ip link set can0 down 2>/dev/null")
     os.system("sudo ip link set can0 up type can bitrate 1000000 2>/dev/null")
 
     parser = argparse.ArgumentParser(description='RAW ISO-TP CAN FOTA Loss Test')
-    parser.add_argument('--loss', type=float, default=0.0, help='Packet Loss Rate (0.0~1.0)')
-    parser.add_argument('--size_kb', type=int, default=64, help='Target firmware size in KB (padding)')
+    parser.add_argument('--loss',     type=float, default=0.0,        help='Packet Loss Rate (0.0~1.0)')
+    parser.add_argument('--size_kb',  type=int,   default=64,         help='Target firmware size in KB (padding)')
+    parser.add_argument('--trial',    type=int,   default=1,          help='Trial number (for logging)')
+    parser.add_argument('--protocol', type=str,   default='RAW_ISO-TP', help='Protocol name (for logging)')
     args = parser.parse_args()
     
-    LOSS_RATE = args.loss
+    LOSS_RATE      = args.loss
     TARGET_SIZE_KB = args.size_kb
+    TRIAL_NUM      = args.trial
+    PROTOCOL_NAME  = args.protocol
     SAVE_PATH = "received_fw.bin"
 
     if not os.path.exists(SAVE_PATH):

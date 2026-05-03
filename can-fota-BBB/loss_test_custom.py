@@ -7,13 +7,73 @@ import ssl
 import zlib
 import random
 import argparse
+import csv
+from datetime import datetime
 
 parser = argparse.ArgumentParser(description="Custom CAN FOTA Gateway")
-parser.add_argument('--loss', type=float, default=0.0, help='Packet loss rate (0.0~1.0)')
-parser.add_argument('--size_kb', type=int, default=0, help='Pad firmware to target size in KB')
+parser.add_argument('--loss',     type=float, default=0.0,      help='Packet loss rate (0.0~1.0)')
+parser.add_argument('--size_kb',  type=int,   default=0,        help='Pad firmware to target size in KB')
+parser.add_argument('--trial',    type=int,   default=1,        help='Trial number (for logging)')
+parser.add_argument('--protocol', type=str,   default='Custom', help='Protocol name (for logging)')
 args = parser.parse_args()
-LOSS_RATE = args.loss
+LOSS_RATE      = args.loss
 TARGET_SIZE_KB = args.size_kb
+TRIAL_NUM      = args.trial
+PROTOCOL_NAME  = args.protocol
+
+LOG_DIR      = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH     = os.path.join(LOG_DIR, "fota_results.csv")
+TEXT_LOG     = os.path.join(LOG_DIR, "fota_results.log")
+CSV_HEADERS  = [
+    "timestamp", "protocol", "loss_rate_pct", "trial",
+    "fw_size_bytes", "total_time_sec",
+    "tx_frames", "rx_frames", "total_frames",
+    "retransmit_frames", "overhead_pct", "status"
+]
+
+def save_result(fw_size, total_time, tx, rx, retx, status="OK"):
+    """결과를 CSV와 텍스트 로그 파일에 저장한다."""
+    overhead_pct = (retx / tx * 100) if tx > 0 else 0.0
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    row = {
+        "timestamp":       ts,
+        "protocol":        PROTOCOL_NAME,
+        "loss_rate_pct":   f"{LOSS_RATE * 100:.2f}",
+        "trial":           TRIAL_NUM,
+        "fw_size_bytes":   fw_size,
+        "total_time_sec":  f"{total_time:.3f}",
+        "tx_frames":       tx,
+        "rx_frames":       rx,
+        "total_frames":    tx + rx,
+        "retransmit_frames": retx,
+        "overhead_pct":    f"{overhead_pct:.2f}",
+        "status":          status,
+    }
+
+    # CSV 저장 (헤더는 파일이 없을 때만 작성)
+    file_exists = os.path.exists(CSV_PATH)
+    with open(CSV_PATH, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_HEADERS)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+    # 가독성 텍스트 로그 저장
+    with open(TEXT_LOG, "a") as f:
+        f.write(f"\n{'='*53}\n")
+        f.write(f"  [{ts}] {PROTOCOL_NAME} - Trial {TRIAL_NUM}\n")
+        f.write(f"{'='*53}\n")
+        f.write(f"  Loss Rate    : {LOSS_RATE*100:.2f}%\n")
+        f.write(f"  FW Size      : {fw_size} bytes\n")
+        f.write(f"  Total Time   : {total_time:.3f} sec\n")
+        f.write(f"  TX Frames    : {tx}\n")
+        f.write(f"  RX Frames    : {rx}\n")
+        f.write(f"  Total Frames : {tx + rx}\n")
+        f.write(f"  Retransmit   : {retx} frames ({overhead_pct:.2f}% overhead)\n")
+        f.write(f"  Status       : {status}\n")
+
+    print(f"[LOG] 결과 저장 완료 → {CSV_PATH}")
 
 # ==========================================
 # 1. 설정 및 커스텀 프로토콜 매크로
@@ -66,6 +126,8 @@ def download_firmware_via_lte(url, save_path):
 # ==========================================
 # 3. SocketCAN 통신 (비트맵 NACK 적용)
 # ==========================================
+CAN_ID_FOTA_REQUEST = 0x200  # App FW에게 FOTA 진입 요청
+
 def build_can_frame(can_id, data_list):
     data_bytes = bytes(data_list)
     # 8바이트 고정 길이 CAN 페이로드 패딩
@@ -104,6 +166,31 @@ def wait_response(bus, timeout=2.0):
             pass
     return None
 
+def _flush_rx(bus):
+    """RX 버퍼에 난은 스토일 데이터륿이다."""
+    bus.settimeout(0.0)
+    flushed = 0
+    while True:
+        try:
+            bus.recv(16)
+            flushed += 1
+        except BlockingIOError:
+            break
+        except Exception:
+            break
+    if flushed:
+        print(f"[FOTA] 스토일 RX 데이터 {flushed}개 폐기")
+
+def trigger_fota_entry(bus):
+    """App FW에 FOTA 진입 신호(CAN 0x200)를 보내고 부트로더 진입을 기다린다."""
+    print("[FOTA] STM32 App FW에 FOTA 진입 신호 전송 중... (CAN ID=0x200)")
+    trigger_frame = build_can_frame(CAN_ID_FOTA_REQUEST, [0xDE, 0xAD])
+    bus.send(trigger_frame)
+    print("[FOTA] 신호 전송 완료. 부트로더 진입 대기 중... (3.0초)")
+    time.sleep(3.0)  # STM32 소프트 리셋 + HAL 초기화 + CAN 재동기화 대기
+    _flush_rx(bus)    # 리셋 전 수신된 스토일 데이터 제거
+    print("[FOTA] 부트로더 준비 완료. FOTA 시작!")
+
 def start_can_fota(firmware_path):
     print(f"=============================================")
     print(f"[CAN] 비트맵 NACK 적용 FOTA Gateway 시작!")
@@ -114,6 +201,9 @@ def start_can_fota(firmware_path):
     except Exception as e:
         print(f"[CAN] 소켓 초기화 실패: {e}")
         return
+
+    # App FW에 FOTA 진입 신호 전송 후 부트로더 대기
+    trigger_fota_entry(bus)
 
     with open(firmware_path, "rb") as f:
         fw_data = f.read()
@@ -141,6 +231,7 @@ def start_can_fota(firmware_path):
     resp = wait_response(bus, timeout=10.0) # Erase는 최대 10초 대기
     if not resp or resp[0] != CMD_TX_ACK:
         print(f"[CAN] Error: Erase ACK 실패. 응답: {resp}")
+        save_result(fw_size, time.time() - fota_start_time, total_tx_frames, 0, retransmitted_frames, status="FAIL_ERASE")
         return
     total_rx_frames = 1  # Erase ACK 수신 카운트
     print("[CAN] Erase 완료! 본격 데이터 전송 시작 🚀")
@@ -237,6 +328,7 @@ def start_can_fota(firmware_path):
             # 🔴 치명적 에러 발생
             elif cmd == CMD_TX_ERR:
                 print(f"\n[CAN Error] 타겟 보드 치명적 에러! 코드: {args}")
+                save_result(fw_size, time.time() - fota_start_time, total_tx_frames, total_rx_frames, retransmitted_frames, status="FAIL_ERR")
                 return
 
     print("\n[CAN] 펌웨어 전체 데이터 전송 완료!")
@@ -252,6 +344,8 @@ def start_can_fota(firmware_path):
     resp = wait_response(bus, timeout=3.0)
     if not resp or resp[0] != CMD_TX_ACK:
         print(f"[CAN] Error: CRC 불일치 또는 End 응답 실패! (벽돌 방지 활성화) 응답: {resp}")
+        elapsed = time.time() - fota_start_time
+        save_result(fw_size, elapsed, total_tx_frames, total_rx_frames, retransmitted_frames, status="FAIL_CRC")
         return
     total_tx_frames += 1  # END 전송분 포함
     total_rx_frames += 1  # END ACK 수신 카운트
@@ -268,6 +362,9 @@ def start_can_fota(firmware_path):
     print(f"[RESULT] 총 통신 프레임 (TX+RX 합산): {total_tx_frames + total_rx_frames} 프레임")
     print(f"[RESULT] 트래픽 오버헤드: 재전송 {retransmitted_frames} 프레임 ({overhead_pct:.2f}% 통신 낭비)")
     print(f"=============================================")
+
+    # 결과 저장 (CSV + 로그)
+    save_result(fw_size, total_time, total_tx_frames, total_rx_frames, retransmitted_frames, status="OK")
 
     # -------------------------------------------------------------
     # 4. Jump 명령

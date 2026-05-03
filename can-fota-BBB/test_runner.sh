@@ -12,14 +12,20 @@ run_test() {
     local size=$3
     local trials=$4
 
-    for loss in 0.0 0.001 0.005 0.01; do
+    local loss_array=()
+    if [ "$size" -le 64 ]; then
+        loss_array=(0.0 0.0001 0.001 0.005)
+    else
+        loss_array=(0.0 0.00001 0.00005 0.0001)
+    fi
+
+    for loss in "${loss_array[@]}"; do
         for trial in $(seq 1 $trials); do
             echo "------------------------------------------------------"
             echo " Protocol : $protocol"
             echo " Loss Rate: $loss  |  Trial: $trial / $trials"
             echo "------------------------------------------------------"
-            read -p "Press Enter when STM32 is in bootloader mode..."
-            python3 $script --loss $loss --size_kb $size
+            python3 $script --loss $loss --size_kb $size --trial $trial --protocol "$protocol"
             echo ""
         done
     done
