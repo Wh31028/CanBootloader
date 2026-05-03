@@ -16,6 +16,13 @@ static bool checkFotaRequest(void)
   return false;
 }
 
+// PA0 버튼(STM32F407 Discovery User Button) 눌림 확인
+// 부트로더 시작 시 PA0 누르고 있으면 App FW 상태 무관하게 FOTA 모드 강제 진입
+static bool isForceBootloaderButton(void)
+{
+  return (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET);
+}
+
 void apInit(void)
 {
   cliOpen(_DEF_UART1, 115200);
@@ -25,8 +32,13 @@ void apInit(void)
   cliPrintf("[BOOT] Checking FOTA request flag...\n\r");
 #endif
 
-  // FOTA 요청이 없으면 바로 App으로 점프
-  if (!checkFotaRequest())
+  if (isForceBootloaderButton())
+  {
+#ifdef _USE_HW_CLI
+    cliPrintf("[BOOT] PA0 button held! Forcing FOTA mode.\n\r");
+#endif
+  }
+  else if (!checkFotaRequest())
   {
     // App FW의 유효성 확인 후 점프
     uint32_t *app_reset_vector = (uint32_t *)(FLASH_ADDR_START + 4);
@@ -65,6 +77,7 @@ void apInit(void)
   cliPrintf("[BOOT] Waiting for firmware from host...\n\r");
 #endif
 }
+
 
 void apMain(void)
 {

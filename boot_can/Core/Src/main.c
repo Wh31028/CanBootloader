@@ -89,7 +89,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  __enable_irq(); // CAN 수신 인터럽트 활성화 (없으면 CAN RX 콜백 절대 안 올)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
