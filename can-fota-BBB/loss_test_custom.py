@@ -39,7 +39,7 @@ def save_result(fw_size, total_time, tx, rx, retx, status="OK"):
     row = {
         "timestamp":       ts,
         "protocol":        PROTOCOL_NAME,
-        "loss_rate_pct":   f"{LOSS_RATE * 100:.2f}",
+        "loss_rate_pct":   f"{LOSS_RATE * 100:.5f}",
         "trial":           TRIAL_NUM,
         "fw_size_bytes":   fw_size,
         "total_time_sec":  f"{total_time:.3f}",
@@ -278,7 +278,8 @@ def start_can_fota(firmware_path):
 
         # 블록 수신 무결성 대기 (비트맵 NACK 처리 구조)
         while True:
-            response = wait_response(bus, timeout=2.0)
+            # 2. STM32의 수신 결과(ACK/NACK) 대기 (꼬리 프레임 유실 대비 타임아웃 150ms 적용)
+            response = wait_response(bus, timeout=0.15)
             if response:
                 total_rx_frames += 1
             
@@ -288,6 +289,8 @@ def start_can_fota(firmware_path):
                 print("\n[CAN Warning] 응답 타임아웃! 꼬리 프레임 단독 송출하여 NACK 검사 트리거!")
                 last_seq = expected_frames - 1
                 bus.send(build_can_frame(CAN_ID_CMD, frames[last_seq][1]))
+                total_tx_frames += 1
+                retransmitted_frames += 1
                 continue
                 
             cmd, args = response

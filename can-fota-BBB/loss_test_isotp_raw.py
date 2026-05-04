@@ -55,7 +55,7 @@ def save_result(fw_size, total_time, tx, rx, retx, status="OK"):
     row = {
         "timestamp":         ts,
         "protocol":          PROTOCOL_NAME,
-        "loss_rate_pct":     f"{LOSS_RATE * 100:.2f}",
+        "loss_rate_pct":     f"{LOSS_RATE * 100:.5f}",
         "trial":             TRIAL_NUM,
         "fw_size_bytes":     fw_size,
         "total_time_sec":    f"{total_time:.3f}",
@@ -273,7 +273,8 @@ def start_can_fota(firmware_path):
                 
             flush_rx_buffer(bus)
             if raw_isotp_send_chunk(bus, payload, LOSS_RATE):
-                ack = wait_sf_ack(bus, CMD_FW_DATA, timeout=3.0)
+                # 최신 OEM 권장 규격(N_Cr ~ 150ms) 적용
+                ack = wait_sf_ack(bus, CMD_FW_DATA, timeout=0.15)
                 if ack and ack[1] == 0:  # BOOT_OK
                     success = True
                     break
