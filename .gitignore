@@ -21,6 +21,7 @@ cmake-build-release/
 *.map
 *.o
 *.d
+*.png
 
 # 시스템 파일
 .DS_Store
