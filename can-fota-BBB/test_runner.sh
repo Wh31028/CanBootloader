@@ -18,12 +18,8 @@ run_all_sizes() {
         echo " Starting Tests for Firmware Size: ${size}KB"
         echo "======================================================"
         
-        local loss_array=()
-        if [ "$size" -eq 64 ]; then
-            loss_array=(0.0 0.0001 0.001 0.005)
-        else
-            loss_array=(0.0 0.00001 0.00005 0.0001)
-        fi
+        # 모든 크기에 동일한 손실률 적용 (0%, 0.01%, 0.05%, 0.1%)
+        local loss_array=(0.0 0.0001 0.0005 0.001)
 
         for loss in "${loss_array[@]}"; do
             for trial in $(seq 1 $trials); do

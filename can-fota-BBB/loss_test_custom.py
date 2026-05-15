@@ -224,6 +224,10 @@ def start_can_fota(firmware_path):
     # -------------------------------------------------------------
     # 1. START 전송 (Erase 명령)
     # -------------------------------------------------------------
+    total_tx_frames = 1       # CMD_START 전송분 미리 초기화
+    total_rx_frames = 0
+    retransmitted_frames = 0
+
     payload_start = [pack_header(CMD_RX_START, 0)] + list(fw_size.to_bytes(4, byteorder='little'))
     bus.send(build_can_frame(CAN_ID_CMD, payload_start))
     print("[CAN] CMD_RX_START 전송 (Flash 지우기 대기 중... ⏳)")
@@ -231,7 +235,7 @@ def start_can_fota(firmware_path):
     resp = wait_response(bus, timeout=10.0) # Erase는 최대 10초 대기
     if not resp or resp[0] != CMD_TX_ACK:
         print(f"[CAN] Error: Erase ACK 실패. 응답: {resp}")
-        save_result(fw_size, time.time() - fota_start_time, total_tx_frames, 0, retransmitted_frames, status="FAIL_ERASE")
+        save_result(fw_size, time.time() - fota_start_time, total_tx_frames, total_rx_frames, retransmitted_frames, status="FAIL_ERASE")
         return
     total_rx_frames = 1  # Erase ACK 수신 카운트
     print("[CAN] Erase 완료! 본격 데이터 전송 시작 🚀")
@@ -241,9 +245,6 @@ def start_can_fota(firmware_path):
     # -------------------------------------------------------------
     idx = 0
     total_size = len(fw_data)
-
-    total_tx_frames = 1  # CMD_START 전송분 포함
-    retransmitted_frames = 0
 
     while idx < total_size:
         block_data = fw_data[idx : idx + 256]

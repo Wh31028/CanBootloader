@@ -265,11 +265,14 @@ def start_can_fota(firmware_path):
         
         retry_count = 0
         success = False
-        while retry_count < 3:
+        # 재전송 실패 기준 제거: 실제 UDS처럼 성공할 때까지 계속 재시도
+        # (공정한 비교 기준: 재전송 횟수/오버헤드를 측정하되 FAIL은 없음)
+        MAX_RETRIES = 50  # 무한루프 방지용 안전장치
+        while not success and retry_count < MAX_RETRIES:
             if retry_count > 0:
-                print(f"\n[CAN] Block {i//chunk_size} 재전송 (ISO-TP Go-Back-N, 256바이트 통째로 시도 중!)")
-                # 실패한 블록을 통째로 다시 쏘는 비용 가산 (37프레임 낭비)
-                retransmitted_frames += ((len(payload) + 6) // 7)  
+                print(f"\n[CAN] Block {i//chunk_size} 재전송 #{retry_count} (ISO-TP Go-Back-N: 256B 블록 전체)")
+                # 블록 전체 재전송 비용 가산 (FF 1 + 모든 CF)
+                retransmitted_frames += ((len(payload) + 6) // 7)
                 
             flush_rx_buffer(bus)
             if raw_isotp_send_chunk(bus, payload, LOSS_RATE):
@@ -281,9 +284,10 @@ def start_can_fota(firmware_path):
             retry_count += 1
             
         if not success:
-            print("\n[CAN] 치명적 에러: 지속적인 패킷 유실로 인해 STM32가 응답하지 않음. 타임아웃 발생.")
+            print(f"\n[CAN] 경고: Block {i//chunk_size} {MAX_RETRIES}회 재시도 후에도 실패. 계속 진행.")
             save_result(fw_size, time.time() - fota_start_time, total_frames_sent, total_frames_received, retransmitted_frames, status="FAIL")
             return
+
 
         idx = min(i + chunk_size, fw_size)
         print(f"\r[CAN] 진행률: {idx}/{fw_size} bytes ({(idx/fw_size)*100:.1f}%)", end='', flush=True)
