@@ -7,6 +7,10 @@ build/
 cmake-build-debug/
 cmake-build-release/
 
+
+__pycache__/
+
+
 # VS Code 설정 (개인 설정 공유 방지)
 .vscode/
 !.vscode/extensions.json
@@ -22,6 +26,7 @@ cmake-build-release/
 *.o
 *.d
 *.png
+*.pyc
 
 # 시스템 파일
 .DS_Store
