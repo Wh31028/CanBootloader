@@ -105,7 +105,7 @@ def prepare_secure_firmware(fw_data):
     assert len(header) == 240, f"Header size is {len(header)} instead of 240"
 
     payload = header + enc_fw
-    
+        
     t_total_pack = time.time() - t0
     print(f"  > 원본 크기: {len(fw_data)} bytes")
     print(f"  > 암호화 후 전체 페이로드 크기: {len(payload)} bytes (256바이트 정렬됨)")
@@ -115,7 +115,8 @@ def prepare_secure_firmware(fw_data):
     print(f"  [Timing] SHA256(ENC): {t_sha256_enc*1000:.2f}ms")
     print(f"  [Timing] ECDSA(ENC): {t_sig_enc*1000:.2f}ms")
     print(f"  [Timing] Total Packing Time: {t_total_pack*1000:.2f}ms")
-    return payload, t_total_pack
+    timings = (t_sha256_pt, t_sig_pt, t_aes, t_sha256_enc, t_sig_enc, t_total_pack)
+    return payload, timings
 
 # ==========================================
 # 3. 통신 유틸리티
@@ -193,7 +194,7 @@ def trigger_fota_entry(bus):
 # ==========================================
 # 4. Custom FOTA 메인 전송 로직
 # ==========================================
-def start_can_fota(firmware_path):
+def start_can_fota(firmware_path, target_kb=0):
     print(f"=============================================")
     print(f"[CAN] SECURE FOTA (ECDSA+AES) 시작!")
     print(f"=============================================")
@@ -209,8 +210,15 @@ def start_can_fota(firmware_path):
     with open(firmware_path, "rb") as f:
         raw_fw_data = f.read()
 
+    if target_kb > 0:
+        target_bytes = target_kb * 1024
+        if len(raw_fw_data) < target_bytes:
+            raw_fw_data += b'\xFF' * (target_bytes - len(raw_fw_data))
+            print(f"[Dummy Padding] 펌웨어를 {target_kb}KB({target_bytes} bytes)로 강제 패딩했습니다!")
+
     # 1. 펌웨어 보안 패킹 수행
-    fw_data, t_total_pack = prepare_secure_firmware(raw_fw_data)
+    fw_data, timings = prepare_secure_firmware(raw_fw_data)
+    t_sha256_pt, t_sig_pt, t_aes, t_sha256_enc, t_sig_enc, t_total_pack = timings
     fw_size = len(fw_data)
 
     fota_start_time = time.time()
@@ -221,6 +229,7 @@ def start_can_fota(firmware_path):
     # ----------------------------------------------------------
     # 2. START 전송
     # ----------------------------------------------------------
+    t_erase_start = time.time()
     payload_start = [pack_header(CMD_RX_START, 0)] + list(fw_size.to_bytes(4, byteorder='little'))
     frame = build_can_frame(CAN_ID_CMD, payload_start)
     send_frame_with_enobufs(bus, frame)
@@ -228,6 +237,7 @@ def start_can_fota(firmware_path):
     print("[CAN] CMD_RX_START 전송 (Flash 지우기 대기 중... ⏳)")
 
     resp = wait_response(bus, timeout=10.0)
+    t_erase = time.time() - t_erase_start
     if not resp or resp[0] != CMD_TX_ACK:
         print(f"[CAN] Error: Erase ACK 실패. 응답: {resp}")
         return
@@ -237,6 +247,7 @@ def start_can_fota(firmware_path):
     # ----------------------------------------------------------
     # 3. DATA 전송 (256B 블록 + 비트맵 NACK)
     # ----------------------------------------------------------
+    t_transfer_start = time.time()
     idx = 0
     while idx < fw_size:
         block_data = fw_data[idx : idx + 256]
@@ -290,12 +301,14 @@ def start_can_fota(firmware_path):
             elif cmd == CMD_TX_ERR:
                 print(f"\n[CAN Error] 타겟 보드 보안 검증 또는 플래시 에러! 코드: {args}")
                 return
+    t_transfer = time.time() - t_transfer_start
 
     print("\n[CAN] 암호화 펌웨어 전체 전송 완료!")
 
     # ----------------------------------------------------------
     # 4. END 전송
     # ----------------------------------------------------------
+    t_verify_start = time.time()
     print("[CAN] 전체 통신 CRC32 비교 전송 (통신 무결성 점검)...")
     fw_crc32 = zlib.crc32(fw_data) & 0xFFFFFFFF
     payload_end = [pack_header(CMD_RX_END, 0)] + list(fw_crc32.to_bytes(4, byteorder='little'))
@@ -304,6 +317,7 @@ def start_can_fota(firmware_path):
     total_tx_frames += 1
 
     resp = wait_response(bus, timeout=3.0)
+    t_verify = time.time() - t_verify_start
     if not resp or resp[0] != CMD_TX_ACK:
         print(f"[CAN] Error: 무결성 검증 실패! 응답: {resp}")
         return
@@ -315,6 +329,7 @@ def start_can_fota(firmware_path):
     print(f"=============================================")
     print(f"[RESULT] 총 소요 시간: {total_time:.2f} 초")
     print(f"=============================================")
+    print(f"csv_result,Custom,{fw_size},{total_time:.3f},{total_tx_frames},{total_rx_frames},{retransmitted_frames},{t_total_pack:.3f},{t_sha256_pt*1000:.2f},{t_sig_pt*1000:.2f},{t_aes*1000:.2f},{t_sha256_enc*1000:.2f},{t_sig_enc*1000:.2f},{t_erase:.3f},{t_transfer:.3f},{t_verify:.3f}")
 
     time.sleep(0.5)
     payload_jump = [pack_header(CMD_RX_JUMP, 0)]
@@ -326,12 +341,19 @@ if __name__ == '__main__':
     os.system("sudo ip link set can0 down 2>/dev/null")
     os.system("sudo ip link set can0 up type can bitrate 1000000 2>/dev/null")
 
+    target_kb = 0
+    if len(sys.argv) > 2:
+        try:
+            target_kb = int(sys.argv[2])
+        except ValueError:
+            target_kb = 0
+
     if len(sys.argv) > 1:
         local_path = sys.argv[1]
-        start_can_fota(local_path)
+        start_can_fota(local_path, target_kb)
     elif os.path.exists(SAVE_PATH):
-        start_can_fota(SAVE_PATH)
+        start_can_fota(SAVE_PATH, target_kb)
     elif download_firmware_via_lte(FW_URL, SAVE_PATH):
-        start_can_fota(SAVE_PATH)
+        start_can_fota(SAVE_PATH, target_kb)
     else:
         print("[System] 취소됨.")

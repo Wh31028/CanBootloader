@@ -45,13 +45,14 @@ priv_key = SigningKey.from_string(bytes.fromhex(ECDSA_PRIV_KEY_HEX), curve=NIST2
 # ==========================================
 def prepare_secure_firmware(fw_data):
     print("[Secure FOTA] Phase 1: 펌웨어 암호화 및 서명 조립 시작...")
+    t0 = time.time()
     
+    # [BUG FIX] 해시 계산 및 암호화 이전에 원본 펌웨어를 256바이트로 미리 패딩!
+    # 이렇게 하면 PKCS7(16바이트) + Header(240바이트) = 256바이트가 추가되어 전체 페이로드가 항상 256의 배수가 됩니다.
     rem = len(fw_data) % 256
     if rem != 0:
         fw_data += b'\xFF' * (256 - rem)
 
-    t0 = time.time()
-    
     t_start = time.time()
     sha256_pt = hashlib.sha256(fw_data).digest()
     t_sha256_pt = time.time() - t_start
@@ -91,7 +92,7 @@ def prepare_secure_firmware(fw_data):
     assert len(header) == 240, f"Header size is {len(header)} instead of 240"
 
     payload = header + enc_fw
-    
+        
     t_total_pack = time.time() - t0
     print(f"  > 원본 크기: {len(fw_data)} bytes")
     print(f"  > 암호화 후 전체 페이로드 크기: {len(payload)} bytes (256바이트 정렬됨)")
@@ -101,7 +102,8 @@ def prepare_secure_firmware(fw_data):
     print(f"  [Timing] SHA256(ENC): {t_sha256_enc*1000:.2f}ms")
     print(f"  [Timing] ECDSA(ENC): {t_sig_enc*1000:.2f}ms")
     print(f"  [Timing] Total Packing Time: {t_total_pack*1000:.2f}ms")
-    return payload, t_total_pack
+    timings = (t_sha256_pt, t_sig_pt, t_aes, t_sha256_enc, t_sig_enc, t_total_pack)
+    return payload, timings
 
 # ==========================================
 # 유틸리티
@@ -234,7 +236,7 @@ def download_firmware_via_lte(url, save_path):
 # ==========================================
 # ISO-TP FOTA 메인 전송 로직
 # ==========================================
-def start_can_fota(firmware_path):
+def start_can_fota(firmware_path, target_kb=0):
     print(f"[CAN] SECURE ISO-TP FOTA Flashing 시작: {firmware_path}")
 
     try:
@@ -249,7 +251,14 @@ def start_can_fota(firmware_path):
     with open(firmware_path, "rb") as f:
         raw_fw_data = f.read()
 
-    fw_data, t_total_pack = prepare_secure_firmware(raw_fw_data)
+    if target_kb > 0:
+        target_bytes = target_kb * 1024
+        if len(raw_fw_data) < target_bytes:
+            raw_fw_data += b'\xFF' * (target_bytes - len(raw_fw_data))
+            print(f"[Dummy Padding] 펌웨어를 {target_kb}KB({target_bytes} bytes)로 강제 패딩했습니다!")
+
+    fw_data, timings = prepare_secure_firmware(raw_fw_data)
+    t_sha256_pt, t_sig_pt, t_aes, t_sha256_enc, t_sig_enc, t_total_pack = timings
     fw_size = len(fw_data)
 
     fota_start_time = time.time()
@@ -260,6 +269,7 @@ def start_can_fota(firmware_path):
     flush_rx_buffer(bus)
 
     # 1. START
+    t_erase_start = time.time()
     sf_data = bytearray(8)
     sf_data[0] = 0x05
     sf_data[1] = CMD_FW_START
@@ -268,6 +278,8 @@ def start_can_fota(firmware_path):
     total_tx_frames += 1
 
     rx_payload = wait_sf_ack(bus, CMD_FW_START, timeout=15.0)
+    t_erase = time.time() - t_erase_start
+
     if not rx_payload:
         print("[CAN] Error: Erase ACK Timeout")
         return
@@ -281,6 +293,7 @@ def start_can_fota(firmware_path):
 
     # 2. DATA
     print("[CAN] Firmware Data 전송 중 (Raw ISO-TP)...")
+    t_transfer_start = time.time()
 
     for i in range(0, fw_size, chunk_size):
         chunk = fw_data[i: i + chunk_size]
@@ -311,9 +324,11 @@ def start_can_fota(firmware_path):
         idx = min(i + chunk_size, fw_size)
         print(f"\r[CAN] 진행률: {idx}/{fw_size} bytes ({(idx/fw_size)*100:.1f}%)", end='', flush=True)
 
+    t_transfer = time.time() - t_transfer_start
     print("\n[CAN] 데이터 전송 완료")
 
     # 3. END
+    t_verify_start = time.time()
     fw_crc32 = zlib.crc32(fw_data) & 0xFFFFFFFF
     sf_data = bytearray(8)
     sf_data[0] = 0x05
@@ -322,19 +337,29 @@ def start_can_fota(firmware_path):
     send_frame_with_enobufs(bus, sf_data)
     total_tx_frames += 1
 
-    ack = wait_sf_ack(bus, CMD_FW_END, timeout=5.0)
+    ack = wait_sf_ack(bus, CMD_FW_END, timeout=10.0)
+    t_verify = time.time() - t_verify_start
     if ack and ack[1] == 0:
         total_rx_frames += 1
-        print("[CAN] 무결성 검증 통과 및 플래싱 완료! ✅")
+        print("\n[CAN] 무결성 검증 통과 및 플래싱 완료! ✅")
     else:
-        print("[CAN] ❌ Error: End ACK Fail")
+        if ack is None:
+            print("\n[CAN] ❌ Error: End ACK Timeout!")
+            print("         👉 원인 분석: STM32가 응답하지 않습니다. (타임아웃 10초 초과)")
+            print("         👉 데이터 전송 중에 CAN 프레임을 잃어버려서 STM32가 아직도 데이터를 기다리는 상태(수신 랙)에 빠졌을 확률이 높습니다.")
+        else:
+            print(f"\n[CAN] ❌ Error: End ACK Fail (응답 코드: {ack[1]})")
         return
 
     total_time = time.time() - fota_start_time
     overhead_pct = (retransmitted_frames / total_tx_frames * 100) if total_tx_frames > 0 else 0.0
     print(f"=============================================")
     print(f"[RESULT] 총 소요 시간: {total_time:.2f} 초")
+    print(f"  - STM32 플래시 Erase 소요 시간: {t_erase:.3f} 초")
+    print(f"  - STM32 데이터 수신 및 AES 해독/쓰기 시간: {t_transfer:.3f} 초")
+    print(f"  - STM32 ECDSA 서명 검증 소요 시간: {t_verify:.3f} 초")
     print(f"=============================================")
+    print(f"csv_result,ISOTP,{fw_size},{total_time:.3f},{total_tx_frames},{total_rx_frames},{retransmitted_frames},{t_total_pack:.3f},{t_sha256_pt*1000:.2f},{t_sig_pt*1000:.2f},{t_aes*1000:.2f},{t_sha256_enc*1000:.2f},{t_sig_enc*1000:.2f},{t_erase:.3f},{t_transfer:.3f},{t_verify:.3f}")
 
     # 4. JUMP
     time.sleep(0.5)
@@ -348,11 +373,19 @@ if __name__ == '__main__':
     os.system("sudo ip link set can0 down 2>/dev/null")
     os.system("sudo ip link set can0 up type can bitrate 1000000 2>/dev/null")
 
+    target_kb = 0
+    if len(sys.argv) > 2:
+        try:
+            target_kb = int(sys.argv[2])
+        except ValueError:
+            target_kb = 0
+
     if len(sys.argv) > 1:
-        start_can_fota(sys.argv[1])
+        local_path = sys.argv[1]
+        start_can_fota(local_path, target_kb)
     elif os.path.exists(SAVE_PATH):
-        start_can_fota(SAVE_PATH)
+        start_can_fota(SAVE_PATH, target_kb)
     elif download_firmware_via_lte(FW_URL, SAVE_PATH):
-        start_can_fota(SAVE_PATH)
+        start_can_fota(SAVE_PATH, target_kb)
     else:
         print("[System] 취소됨.")
