@@ -32,7 +32,7 @@ bool canInit(void)
 
   HAL_StatusTypeDef status;
 
-  status = HAL_CAN_RegisterCallback(&hcan, HAL_CAN_RX_FIFO0_MSG_PENDING_CB_ID,
+  status = HAL_CAN_RegisterCallback(&hcan, HAL_CAN_RX_FIFO1_MSG_PENDING_CB_ID,
                                     canFifoCallback);
   if (status != HAL_OK)
   {
@@ -41,13 +41,9 @@ bool canInit(void)
 
   //-- 인터럽트 활성화
   //
-  uint32_t enable_int;
-
-  enable_int = CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_BUSOFF |
+  if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO1_MSG_PENDING | CAN_IT_BUSOFF |
                CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE |
-               CAN_IT_LAST_ERROR_CODE | CAN_IT_ERROR;
-  status     = HAL_CAN_ActivateNotification(&hcan, enable_int);
-  if (status != HAL_OK)
+               CAN_IT_LAST_ERROR_CODE | CAN_IT_ERROR) != HAL_OK)
   {
     ret &= false;
   }
@@ -82,7 +78,7 @@ bool canInitFilter(void)
 
   sFilterConfig.FilterBank           = 0;
   sFilterConfig.FilterScale          = CAN_FILTERSCALE_32BIT;
-  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO1;
   sFilterConfig.FilterActivation     = ENABLE;
   sFilterConfig.SlaveStartFilterBank = 14;
 
@@ -149,7 +145,7 @@ void canFifoCallback(CAN_HandleTypeDef *p_hcan)
 
   if (p_hcan->Instance == CAN1)
   {
-    if (HAL_CAN_GetRxMessage(p_hcan, CAN_RX_FIFO0, &rx_header, can_msg.data) ==
+    if (HAL_CAN_GetRxMessage(p_hcan, CAN_RX_FIFO1, &rx_header, can_msg.data) ==
         HAL_OK)
     {
       can_msg.id =

@@ -90,7 +90,7 @@ void apMain(void)
   while (1)
   {
     bootProcess();
-    if (millis() - pre_time >= 500)
+    if (millis() - pre_time >= 100) // 부트로더는 100ms 주기로 빠르게 깜빡임
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);
