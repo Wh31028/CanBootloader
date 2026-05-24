@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=debian
-WorkingDirectory=/home/debian/can-fota-BBB/web_dashboard
-ExecStart=/bin/bash /home/debian/can-fota-BBB/web_dashboard/startup.sh
+User=root
+WorkingDirectory=/home/debian/web_dashboard
+ExecStart=/bin/bash /home/debian/web_dashboard/startup.sh
 Restart=on-failure
 RestartSec=5
 

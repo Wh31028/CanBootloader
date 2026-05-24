@@ -111,7 +111,7 @@
             <!-- Controls Card -->
             <div class="glass-card p-6">
                 <h2 class="text-lg font-semibold mb-4 text-slate-200">FIRMWARE UPLOAD & CONTROLS</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 items-end">
                     
                     <div class="col-span-1 md:col-span-1">
                         <label class="block text-xs text-slate-400 mb-1">FIRMWARE FILE (.bin)</label>
@@ -124,6 +124,25 @@
                         />
                     </div>
 
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">TARGET BOARD</label>
+                        <select id="boardSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-neonCyan focus:border-neonCyan block p-2.5">
+                            <option value="f407">STM32F407 (Default)</option>
+                            <option value="f103">STM32F103 (Nucleo)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">CAN BITRATE</label>
+                        <select id="bitrateSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-neonCyan focus:border-neonCyan block p-2.5">
+                            <option value="1000000">1000 kbps (1 Mbps)</option>
+                            <option value="500000">500 kbps</option>
+                            <option value="250000">250 kbps</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div>
                         <label class="block text-xs text-slate-400 mb-1">PROTOCOL SELECTION</label>
                         <select id="protocolSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-neonCyan focus:border-neonCyan block p-2.5">
@@ -306,13 +325,35 @@
                         document.getElementById('line2').style.height = '0%';
                     }
                 } else if (msg.type === 'progress_update') {
-                    // Try to parse progress from script output if possible
+                    // Extract progress percentage
                     const match = msg.data.match(/\((\d+\.?\d*)%\)/);
                     if (match) {
                         setProgress(parseInt(match[1]));
                     }
+                    
+                    // Extract bytes for transfer rate calculation
+                    const bytesMatch = msg.data.match(/(\d+)\/\d+\s+bytes/);
+                    if (bytesMatch) {
+                        const currentBytes = parseInt(bytesMatch[1]);
+                        const now = Date.now();
+                        
+                        if (window.lastBytesTime && currentBytes > window.lastBytes) {
+                            const dt = (now - window.lastBytesTime) / 1000; // seconds
+                            if (dt >= 0.5) { // update rate text at most twice a second
+                                const rateBps = (currentBytes - window.lastBytes) / dt;
+                                const rateKbps = (rateBps * 8) / 1000; // Kilobits per sec
+                                document.getElementById('rateText').textContent = `${rateKbps.toFixed(1)} kbps`;
+                                window.lastBytes = currentBytes;
+                                window.lastBytesTime = now;
+                            }
+                        } else if (!window.lastBytesTime || currentBytes < window.lastBytes) {
+                            // Reset if starting new or undefined
+                            window.lastBytes = currentBytes;
+                            window.lastBytesTime = now;
+                        }
+                    }
                 } else if (msg.type === 'can_frames') {
-                    handleCanFrames(msg.frames);
+                    handleCanFrames(msg.frames, msg.count);
                 }
             };
             
@@ -363,12 +404,12 @@
         let packetCount = 0;
         let lastTime = Date.now();
         
-        function handleCanFrames(frames) {
+        function handleCanFrames(frames, count) {
             const table = document.getElementById('canTable');
             const now = Date.now();
             
             // Calculate PPS and Load every second
-            packetCount += frames.length;
+            packetCount += (count || frames.length);
             if (now - lastTime >= 1000) {
                 const pps = packetCount;
                 document.getElementById('canPps').textContent = `${pps} pps`;
@@ -385,7 +426,10 @@
             const fragment = document.createDocumentFragment();
             const timeStr = new Date().toISOString().substring(11, 23); // HH:mm:ss.SSS
 
-            frames.forEach(f => {
+            // Optimisation: Only render the latest 100 frames if the batch is huge (Custom Protocol blasts frames!)
+            const framesToRender = frames.slice(-100);
+
+            framesToRender.forEach(f => {
                 const row = document.createElement('div');
                 let color = 'text-slate-300';
                 if(f.id === '0x100' || f.id === '0x7E0') color = 'text-blue-400'; // Host -> Target
@@ -452,15 +496,21 @@
 
         function startUpdate() {
             const protocol = document.getElementById('protocolSelect').value;
+            const board = document.getElementById('boardSelect').value;
+            const bitrate = document.getElementById('bitrateSelect').value;
             const btn = document.getElementById('startBtn');
             
-            document.getElementById('activeProtocolText').textContent = protocol.toUpperCase();
+            document.getElementById('activeProtocolText').textContent = `${protocol.toUpperCase()} (${board.toUpperCase()})`;
+            document.getElementById('rateText').textContent = '-- kbps'; // Reset rate text
+            window.lastBytesTime = null; // Reset rate timer
             setProgress(0);
             
             if(ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     action: 'start_update',
-                    protocol: protocol
+                    protocol: protocol,
+                    board: board,
+                    bitrate: bitrate
                 }));
             } else {
                 alert("WebSocket is not connected.");

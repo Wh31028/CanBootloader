@@ -30,7 +30,18 @@ ip link set can0 down 2>/dev/null
 ip link set can0 up type can bitrate 1000000 2>/dev/null
 echo "[Boot] CAN0 활성화 완료."
 
-# 5. FastAPI 웹 대시보드 서버 시작
+# 5. BoneScript 중지 (8000번 포트 확보)
+echo "[Boot] Stopping BoneScript..."
+systemctl stop bonescript.socket bonescript.service 2>/dev/null
+
+# 6. FastAPI 웹 대시보드 서버 시작 (백그라운드 실행)
 echo "[Boot] FOTA 웹 대시보드 서버 시작 중..."
 cd /home/debian/web_dashboard
-python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+
+# 7. ngrok 터널 시작
+sleep 5
+echo "[Boot] Starting ngrok tunnel..."
+pkill -f ngrok 2>/dev/null
+sleep 1
+ngrok http 8000
