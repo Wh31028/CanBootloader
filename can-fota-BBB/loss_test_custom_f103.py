@@ -270,6 +270,7 @@ def start_can_fota(firmware_path):
             while True:
                 try:
                     bus.send(build_can_frame(CAN_ID_CMD, payload))
+                    #time.sleep(0.005) # STmin 5ms 강제 딜레이
                     break
                 except OSError as getattr_err:
                     if getattr(getattr_err, 'errno', None) == 105: # No buffer space available

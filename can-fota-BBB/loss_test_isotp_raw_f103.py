@@ -164,6 +164,7 @@ def raw_isotp_send_chunk(bus, payload, loss_rate):
     
     # 2. Flow Control (FC) 대기 (1회 왕복 딜레이 발생 포인트)
     fc_received = False
+    stmin_ms = 0
     bus.settimeout(1.0)
     start_time = time.time()
     while time.time() - start_time < 1.0:
@@ -175,7 +176,11 @@ def raw_isotp_send_chunk(bus, payload, loss_rate):
                 if rx_id == CAN_ID_RESP:
                     total_frames_received += 1
                     if (rx_data[0] & 0xF0) == 0x30:
-                        # BS=0, STmin=0 이라고 가정하고 진행
+                        stmin_ms = rx_data[2]
+                        if stmin_ms >= 0xF1 and stmin_ms <= 0xF9:
+                            stmin_ms = (stmin_ms - 0xF0) * 0.1 # 100us 단위
+                        elif stmin_ms > 0x7F:
+                            stmin_ms = 0
                         fc_received = True
                         break
         except socket.timeout:
@@ -202,6 +207,9 @@ def raw_isotp_send_chunk(bus, payload, loss_rate):
             continue
             
         send_frame_with_enobufs(bus, cf_data)
+        if stmin_ms > 0:
+            time.sleep(stmin_ms / 1000.0)
+            
         total_frames_sent += 1
         idx += cf_len
         seq = (seq + 1) & 0x0F
