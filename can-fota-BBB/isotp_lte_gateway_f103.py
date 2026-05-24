@@ -169,7 +169,11 @@ def raw_isotp_send_chunk(bus, payload):
         send_frame_with_enobufs(bus, cf_data)
         
         if stmin_sec > 0:
-            time.sleep(stmin_sec)
+            # Linux time.sleep() is inaccurate for microseconds. Use a busy wait (spin loop)
+            # for high precision STmin delays to prevent STM32 block timeouts.
+            target = time.perf_counter() + stmin_sec
+            while time.perf_counter() < target:
+                pass
             
         idx += cf_len
         seq = (seq + 1) & 0x0F
