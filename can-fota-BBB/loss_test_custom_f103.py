@@ -260,17 +260,20 @@ def start_can_fota(firmware_path):
             
         expected_frames = len(frames)
         
-        # 블록 일괄 풀악셀 전송
-        for seq_num, payload in frames:
+        # 블록 일괄 전송 (STmin 5ms 딜레이 적용, 첫 프레임 제외)
+        for i, (seq_num, payload) in enumerate(frames):
             total_tx_frames += 1
             if LOSS_RATE > 0 and random.random() < LOSS_RATE:
                 # 패킷 고의 드랍
                 continue
-            # SocketCAN 큐 오버플로우(ENOBUFS) 발생 시 공간이 날 때까지 대기 (진정한 하드웨어 풀스피드 전송)
+            # SocketCAN 큐 오버플로우(ENOBUFS) 발생 시 공간이 날 때까지 대기
             while True:
                 try:
                     bus.send(build_can_frame(CAN_ID_CMD, payload))
-                    #time.sleep(0.005) # STmin 5ms 강제 딜레이
+                    if i > 0:
+                        target = time.perf_counter() + 0.005
+                        while time.perf_counter() < target:
+                            pass
                     break
                 except OSError as getattr_err:
                     if getattr(getattr_err, 'errno', None) == 105: # No buffer space available
@@ -315,7 +318,7 @@ def start_can_fota(firmware_path):
                 print(f"\n[CAN Recovery] NACK 비트맵 수신! 손실 프레임 {len(missing_seqs)}개. 파이프라인 묶음 재전송 실행!")
                 
                 # 딱 누락된 프레임 M개만 골라서 역송출
-                for seq_num in missing_seqs:
+                for i, seq_num in enumerate(missing_seqs):
                     total_tx_frames += 1
                     retransmitted_frames += 1
                     if LOSS_RATE > 0 and random.random() < LOSS_RATE:
@@ -323,6 +326,10 @@ def start_can_fota(firmware_path):
                     while True:
                         try:
                             bus.send(build_can_frame(CAN_ID_CMD, frames[seq_num][1]))
+                            if i > 0:
+                                target = time.perf_counter() + 0.005
+                                while time.perf_counter() < target:
+                                    pass
                             break
                         except OSError as getattr_err:
                             if getattr(getattr_err, 'errno', None) == 105:
