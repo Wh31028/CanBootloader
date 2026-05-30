@@ -26,13 +26,13 @@
 #define FOTA_MAGIC_NUMBER  0xDEADBEEFUL
 #define CAN_ID_FOTA_REQUEST 0x200UL
 
-#define FLASH_ADDR_FW 0x8010000 // 64k 뒤에 있음
+#define FLASH_ADDR_FW 0x08004000
 
-#define FLASH_ADDR_START 0x8010000
+#define FLASH_ADDR_START 0x08004000
 
 #define FLASH_ADDR_END   0x08020000 // 128KB Limit
 
-#define FLASH_ADDR_FW_MAX_LEN (1024 * 64) // 128KB - 64KB(Bootloader)
+#define FLASH_ADDR_FW_MAX_LEN ((1024 * 56) - 8)
 
 #define logPrintf printf
 

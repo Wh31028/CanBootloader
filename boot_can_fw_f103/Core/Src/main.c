@@ -73,7 +73,13 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  // 부트로더에서 넘어온 쓰레기(Pending) 인터럽트들을 전부 청소합니다.
+  for (int i = 0; i < 8; i++)
+  {
+    NVIC->ICPR[i] = 0xFFFFFFFF;
+  }
+  // 그 후 전역 인터럽트를 켜서 SystemClock_Config()의 SysTick이 정상 동작하게 만듭니다.
+  __enable_irq(); 
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -89,7 +95,6 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  __enable_irq();
 
   /* USER CODE END SysInit */
 

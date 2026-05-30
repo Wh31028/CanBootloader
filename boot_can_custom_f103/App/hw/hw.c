@@ -4,15 +4,15 @@
 
 bool hwInit(void)
 {
-  cliInit();
+  // cliInit();
   ledInit();
   flashInit();
 
-  uartInit();
-  for (int i = 0; i < UART_MAX_CH; i++)
-  {
-    uartOpen(i, 115200);
-  }
+  // uartInit();
+  // for (int i = 0; i < UART_MAX_CH; i++)
+  // {
+  //   uartOpen(i, 115200);
+  // }
   logPrintf("\r\n[ Firmware Begin... ]\r\n");
   logPrintf("Booting..Clock\t: %d Mhz\r\n",
             (int)HAL_RCC_GetSysClockFreq() / 1000000);

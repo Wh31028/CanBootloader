@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import time
 import struct
@@ -64,14 +65,18 @@ def build_can_frame(can_id, data_list):
     data_padded = data_bytes + b'\x00' * (8 - len(data_bytes))
     return struct.pack("<IB3x8s", can_id, len(data_bytes), data_padded)
 
-def send_frame_with_enobufs(bus, frame):
-    """ENOBUFS(SocketCAN 커널 큐 포화) 발생 시 재시도하며 전송한다."""
+def send_frame_with_enobufs(bus, frame, timeout=2.0):
+    """ENOBUFS(SocketCAN 커널 큐 포화) 발생 시 재시도하며 전송한다. 일정 시간 초과 시 포기한다."""
+    start_time = time.time()
     while True:
         try:
             bus.send(frame)
             break
         except OSError as e:
             if getattr(e, 'errno', None) == 105:  # ENOBUFS
+                if time.time() - start_time > timeout:
+                    print(f"\n[CAN Error] ENOBUFS 무한 대기! CAN 통신 선이 뽑혔거나 타겟이 응답하지 않습니다.")
+                    os._exit(1) # 강제 종료 (업데이트 취소)
                 time.sleep(0.0005)
             else:
                 raise
@@ -172,7 +177,7 @@ def start_can_fota(firmware_path):
     resp = wait_response(bus, timeout=10.0)
     if not resp or resp[0] != CMD_TX_ACK:
         print(f"[CAN] Error: Erase ACK 실패. 응답: {resp}")
-        return
+        sys.exit(1)
     total_rx_frames += 1
     print("[CAN] Erase 완료! 본격 데이터 전송 시작 🚀")
 
@@ -202,14 +207,23 @@ def start_can_fota(firmware_path):
             send_frame_with_enobufs(bus, frame)
 
         # 블록 수신 무결성 대기 (비트맵 NACK, 150ms N_Cr 타임아웃)
+        retry_count = 0
+        MAX_RETRIES = 20  # 최대 20번(약 3초) 재시도 후 포기
+
         while True:
             response = wait_response(bus, timeout=0.15)
             if response:
                 total_rx_frames += 1
+                retry_count = 0  # 응답을 받으면 재시도 카운트 초기화
 
             # 타임아웃: 꼬리 프레임이 유실된 경우 마지막 프레임 재전송으로 NACK 트리거
             if not response:
-                print("\n[CAN Warning] 응답 타임아웃! 꼬리 프레임 단독 송출하여 NACK 검사 트리거!")
+                retry_count += 1
+                if retry_count > MAX_RETRIES:
+                    print(f"\n[CAN Error] {MAX_RETRIES}회 연속 응답 없음! 타겟 보드의 전원이 꺼졌거나 CAN 통신이 끊어졌습니다.")
+                    sys.exit(1)
+
+                print(f"\n[CAN Warning] 응답 타임아웃! 꼬리 프레임 재송출 (재시도: {retry_count}/{MAX_RETRIES})")
                 last_seq = expected_frames - 1
                 frame = build_can_frame(CAN_ID_CMD, frames[last_seq][1])
                 send_frame_with_enobufs(bus, frame)
@@ -243,7 +257,7 @@ def start_can_fota(firmware_path):
             # 🔴 치명적 에러
             elif cmd == CMD_TX_ERR:
                 print(f"\n[CAN Error] 타겟 보드 치명적 에러! 코드: {args}")
-                return
+                sys.exit(1)
 
     print("\n[CAN] 펌웨어 전체 데이터 전송 완료!")
 
@@ -257,12 +271,13 @@ def start_can_fota(firmware_path):
     send_frame_with_enobufs(bus, frame)
     total_tx_frames += 1
 
-    resp = wait_response(bus, timeout=3.0)
+    print("[CAN] 대상 기기에서 무결성 검증 및 Dual-Bank 플래시 복사를 진행 중입니다... (최대 10초 대기 ⏳)")
+    resp = wait_response(bus, timeout=10.0)
     if not resp or resp[0] != CMD_TX_ACK:
-        print(f"[CAN] Error: CRC 불일치 또는 End 응답 실패! (벽돌 방지 활성화) 응답: {resp}")
-        return
+        print(f"[CAN] Error: CRC 불일치 또는 복사/End 응답 실패! (벽돌 방지 활성화) 응답: {resp}")
+        sys.exit(1)
     total_rx_frames += 1
-    print("[CAN] 펌웨어 무결성 최종 통과! (CRC Validated) ✅")
+    print("[CAN] 펌웨어 무결성 최종 통과 및 복사 완료! (CRC Validated & Copied) ✅")
 
     total_time = time.time() - fota_start_time
     overhead_pct = (retransmitted_frames / total_tx_frames * 100) if total_tx_frames > 0 else 0.0
@@ -288,10 +303,10 @@ if __name__ == '__main__':
 
     if len(sys.argv) > 1:
         local_path = sys.argv[1]
-        print(f"[System] 대시보드에서 업로드된 파일({local_path})로 즉시 FOTA를 시작합니다.")
+        print("[System] 대시보드에서 업로드된 파일({})로 즉시 FOTA를 시작합니다.".format(local_path))
         start_can_fota(local_path)
     elif os.path.exists(SAVE_PATH):
-        print(f"[TEST] 로컬 파일 사용 중 ({SAVE_PATH}) - LTE 다운로드 생략")
+        print("[TEST] 로컬 파일 사용 중 ({}) - LTE 다운로드 생략".format(SAVE_PATH))
         start_can_fota(SAVE_PATH)
     elif download_firmware_via_lte(FW_URL, SAVE_PATH):
         start_can_fota(SAVE_PATH)

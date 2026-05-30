@@ -257,12 +257,13 @@ def start_can_fota(firmware_path):
     send_frame_with_enobufs(bus, frame)
     total_tx_frames += 1
 
-    resp = wait_response(bus, timeout=3.0)
+    print("[CAN] 대상 기기에서 무결성 검증 및 Dual-Bank 플래시 복사를 진행 중입니다... (최대 10초 대기 ⏳)")
+    resp = wait_response(bus, timeout=10.0)
     if not resp or resp[0] != CMD_TX_ACK:
-        print(f"[CAN] Error: CRC 불일치 또는 End 응답 실패! (벽돌 방지 활성화) 응답: {resp}")
+        print(f"[CAN] Error: CRC 불일치 또는 복사/End 응답 실패! (벽돌 방지 활성화) 응답: {resp}")
         return
     total_rx_frames += 1
-    print("[CAN] 펌웨어 무결성 최종 통과! (CRC Validated) ✅")
+    print("[CAN] 펌웨어 무결성 최종 통과 및 복사 완료! (CRC Validated & Copied) ✅")
 
     total_time = time.time() - fota_start_time
     overhead_pct = (retransmitted_frames / total_tx_frames * 100) if total_tx_frames > 0 else 0.0
