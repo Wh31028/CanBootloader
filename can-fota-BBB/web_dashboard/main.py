@@ -1,11 +1,10 @@
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
+
 import os
-import subprocess
 import asyncio
-import sys
 import socket
 import struct
 import time
@@ -129,22 +128,21 @@ async def websocket_endpoint(websocket: WebSocket):
                 except Exception as e:
                     await websocket.send_json({"type": "log", "data": f"[Error] CAN config exception: {e}"})
 
-                # 2. Determine target Python script
-                script_name = f"{protocol}_lte_gateway.py"
-                if board == "f103":
-                    script_name = f"{protocol}_lte_gateway_f103.py"
-                    
-                script_path = os.path.join(BASE_DIR, script_name)
-                
-                if not os.path.exists(script_path):
-                    await websocket.send_json({"type": "log", "data": f"[Error] Script {script_name} not found."})
+                # 2. Determine and invoke compiled C flasher binary
+                binary_path = os.path.join(BASE_DIR, "can_fota_flasher")
+                if not os.path.exists(binary_path):
+                    # Fallback to local subdirectory if not in base directory
+                    binary_path = os.path.join(os.path.dirname(__file__), "can_fota_flasher")
+
+                if not os.path.exists(binary_path):
+                    await websocket.send_json({"type": "log", "data": "[Error] Compiled C binary 'can_fota_flasher' not found. Run make first."})
                     continue
 
-                await websocket.send_json({"type": "log", "data": f"Starting {protocol.upper()} FOTA update on {board.upper()}..."})
+                await websocket.send_json({"type": "log", "data": f"Starting C Flasher FOTA update ({protocol.upper()}) on {board.upper()}..."})
                 
-                # Using sys.executable to run with current python, passing FIRMWARE_SAVE_PATH
+                # Executing: ./can_fota_flasher <protocol> <firmware_path> can0
                 process = await asyncio.create_subprocess_exec(
-                    sys.executable, script_path, FIRMWARE_SAVE_PATH,
+                    binary_path, protocol, FIRMWARE_SAVE_PATH, "can0",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
                     cwd=BASE_DIR

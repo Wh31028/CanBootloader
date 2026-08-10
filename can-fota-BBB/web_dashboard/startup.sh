@@ -36,7 +36,7 @@ systemctl stop bonescript.socket bonescript.service 2>/dev/null
 
 # 6. FastAPI 웹 대시보드 서버 시작 (백그라운드 실행)
 echo "[Boot] FOTA 웹 대시보드 서버 시작 중..."
-cd /home/debian/web_dashboard
+cd /home/debian/can-fota-BBB/web_dashboard
 python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 &
 
 # 7. ngrok 터널 시작
