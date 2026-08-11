@@ -1,0 +1,9 @@
+[submodule "boot_can_isotp/App/ap/boot_can/iso15765"]
+	path = boot_can_isotp/App/ap/boot_can/iso15765
+	url = https://github.com/lishen2/isotp-c.git
+[submodule "boot_can_isotp_f103/App/ap/boot_can/iso15765"]
+	path = boot_can_isotp_f103/App/ap/boot_can/iso15765
+	url = https://github.com/lishen2/isotp-c.git
+[submodule "boot_can_isotp_secure/App/ap/boot_can/iso15765"]
+	path = boot_can_isotp_secure/App/ap/boot_can/iso15765
+	url = https://github.com/lishen2/isotp-c.git
