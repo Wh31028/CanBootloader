@@ -120,8 +120,8 @@ void cliFlash(cli_args_t *args)
   if (args->argc == 1 && args->isStr(0, "info") == true)
   {
     cliPrintf("Flash Page Size : %d Bytes\n\r", FLASH_PAGE_SIZE);
-    cliPrintf("Flash Start Addr: 0x08000000\n\r");
-    cliPrintf("Flash End Addr  : 0x0801FFFF (128KB)\n\r");
+    cliPrintf("Flash Start Addr: 0x%08lX\n\r", (unsigned long)FLASH_ADDR_START);
+    cliPrintf("Flash End Addr  : 0x%08lX\n\r", (unsigned long)(FLASH_ADDR_END - 1));
     ret = true;
   }
 
