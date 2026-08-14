@@ -32,7 +32,7 @@
 
 #define FLASH_ADDR_END   0x08020000 // 128KB Limit
 
-#define FLASH_ADDR_FW_MAX_LEN ((1024 * 56) - 8)
+#define FLASH_ADDR_FW_MAX_LEN ((1024 * 112) - 8)
 
 #define logPrintf printf
 
