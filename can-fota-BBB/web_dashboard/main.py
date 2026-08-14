@@ -109,7 +109,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if action == "start_update":
                 protocol = data.get("protocol", "custom")
                 board = data.get("board", "f407")
-                bitrate = data.get("bitrate", "1000000")
+                bitrate = data.get("bitrate", "500000")
                 
                 await websocket.send_json({"type": "status", "data": "UPDATING"})
                 

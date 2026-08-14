@@ -18,16 +18,12 @@ ip route replace default via 192.168.8.1 dev eth3
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 echo "[Boot] LTE 라우팅 완료."
 
-# 3. CAN 핀 하드웨어 설정 (P9.24=CAN TX, P9.26=CAN RX)
-echo "[Boot] CAN 핀 설정 중..."
-config-pin P9.24 can
-config-pin P9.26 can
-echo "[Boot] CAN 핀 설정 완료."
 
-# 4. CAN 인터페이스 활성화 (1Mbps)
+
+# 4. CAN 인터페이스 활성화 (500kbps)
 echo "[Boot] CAN 인터페이스 활성화 중..."
 ip link set can0 down 2>/dev/null
-ip link set can0 up type can bitrate 1000000 2>/dev/null
+ip link set can0 up type can bitrate 500000 2>/dev/null
 echo "[Boot] CAN0 활성화 완료."
 
 # 5. BoneScript 중지 (8000번 포트 확보)
