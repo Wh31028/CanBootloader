@@ -30,8 +30,8 @@ static bool isForceBootloaderButton(void)
 
 void apInit(void)
 {
-  cliOpen(_DEF_UART1, 115200);
-  cliLogo();
+  // cliOpen(_DEF_UART1, 115200);
+  // cliLogo();
 
 #ifdef _USE_HW_CLI
   cliPrintf("[BOOT] Checking FOTA request flag...\n\r");
@@ -95,6 +95,6 @@ void apMain(void)
       pre_time = millis();
       ledToggle(_DEF_LED1);
     }
-    cliMain();
+    // cliMain();
   }
 }

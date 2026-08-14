@@ -13,10 +13,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
 
-# Define the build type
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug")
-endif()
+# Force the smallest release-oriented build configuration.
+set(CMAKE_BUILD_TYPE "MinSizeRel" CACHE STRING "Build type" FORCE)
 
 # Set the project name
 set(CMAKE_PROJECT_NAME boot_can_isotp_f103)
@@ -86,8 +84,10 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
 target_compile_options(${CMAKE_PROJECT_NAME}  PRIVATE
   -Wno-expansion-to-defined
-  #-Os  #최적화
-  -O0 #디버깅용
+  -Os  #최적화
+  #-O0 #디버깅용
+  -ffunction-sections
+  -fdata-sections
 )
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} 
   POST_BUILD
@@ -99,4 +99,4 @@ add_custom_command(TARGET ${CMAKE_PROJECT_NAME}
   POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} ARGS -O ihex ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.hex
   COMMENT "Invoking: Make Hex"
-  )    
+  )

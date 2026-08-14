@@ -10,7 +10,8 @@
 #define _USE_HW_UART
 #define HW_UART_MAX_CH 1
 
-#define _USE_HW_CLI
+// CLI is disabled in the size-optimized bootloader build.
+// #define _USE_HW_CLI
 #define HW_CLI_CMD_LIST_MAX 32
 #define HW_CLI_CMD_NAME_MAX 16
 #define HW_CLI_LINE_HIS_MAX 8
@@ -33,7 +34,7 @@
 
 #define FLASH_ADDR_FW_MAX_LEN (1024 * 64) // 128KB - 64KB(Bootloader)
 
-#define logPrintf printf
+#define logPrintf(...) ((void)0)
 
 void delay(uint32_t ms);
 uint32_t millis(void);

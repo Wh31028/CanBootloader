@@ -31,3 +31,4 @@ __pycache__/
 # 시스템 파일
 .DS_Store
 Thumbs.db
+**/.settings/*.json
