@@ -26,8 +26,10 @@ static void enterFotaMode(void)
 
 void apInit(void)
 {
+#ifdef _USE_HW_CLI
   cliOpen(_DEF_UART1, 115200);
   cliLogo();
+#endif
 
 #ifdef _USE_HW_CLI
   cliPrintf("[AP] Firmware Running. Waiting for FOTA request on CAN ID 0x200...\n\r");
@@ -64,6 +66,8 @@ void apMain(void)
     }
 #endif
 
+#ifdef _USE_HW_CLI
     cliMain();
+#endif
   }
 }

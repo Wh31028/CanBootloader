@@ -10,7 +10,7 @@
 #define _USE_HW_UART
 #define HW_UART_MAX_CH 1
 
-#define _USE_HW_CLI
+/* CLI is disabled in the Custom FOTA application image to preserve Flash. */
 #define HW_CLI_CMD_LIST_MAX 32
 #define HW_CLI_CMD_NAME_MAX 16
 #define HW_CLI_LINE_HIS_MAX 8
@@ -30,11 +30,11 @@
 
 #define FLASH_ADDR_START 0x08004000
 
-#define FLASH_ADDR_END   0x08020000 // 128KB Limit
+#define FLASH_ADDR_END   0x08011FF8 // Custom application region end
 
-#define FLASH_ADDR_FW_MAX_LEN ((1024 * 112) - 8)
+#define FLASH_ADDR_FW_MAX_LEN ((1024 * 56) - 8)
 
-#define logPrintf printf
+#define logPrintf(...) ((void)0)
 
 void delay(uint32_t ms);
 uint32_t millis(void);
