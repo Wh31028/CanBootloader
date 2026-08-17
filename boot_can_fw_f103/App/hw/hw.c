@@ -3,7 +3,9 @@
 
 bool hwInit(void)
 {
+#ifdef _USE_HW_CLI
   cliInit();
+#endif
   ledInit();
   flashInit();
   canInit();

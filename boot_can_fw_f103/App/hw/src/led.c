@@ -5,7 +5,9 @@
 #include <stdint.h>
 
 #ifdef _USE_HW_LED
+#ifdef _USE_HW_CLI
 #include "cli.h"
+#endif
 
 typedef struct
 {
@@ -15,7 +17,9 @@ typedef struct
   GPIO_PinState off_state;
 } led_tbl_t;
 
+#ifdef _USE_HW_CLI
 static void ledCmd(cli_args_t *args);
+#endif
 
 static led_tbl_t led_tbl[LED_MAX_CH] = {
     {GPIOA, GPIO_PIN_5, GPIO_PIN_SET, GPIO_PIN_RESET}};
@@ -28,7 +32,9 @@ bool ledInit(void)
     ledOff(i);
   }
 
+#ifdef _USE_HW_CLI
   cliAdd("led", ledCmd);
+#endif
 
   return true;
 }
@@ -57,7 +63,8 @@ void ledToggle(uint8_t ch)
   HAL_GPIO_TogglePin(led_tbl[ch].port, led_tbl[ch].pin);
 }
 
-void ledCmd(cli_args_t *args)
+#ifdef _USE_HW_CLI
+static void ledCmd(cli_args_t *args)
 {
   bool ret = false;
 
@@ -95,5 +102,7 @@ void ledCmd(cli_args_t *args)
     logPrintf("led test\n\r");
   }
 }
+
+#endif
 
 #endif
