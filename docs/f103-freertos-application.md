@@ -61,8 +61,10 @@ than busy-waiting in `HAL_Delay()`.
 `configCHECK_FOR_STACK_OVERFLOW=2` is enabled. The debugger-visible volatile
 symbol `g_app_task_stack_high_water_mark_words` records
 `uxTaskGetStackHighWaterMark(NULL)` at task entry and once per LED period. Its
-unit is 32-bit stack words. Hardware measurements should be used before reducing
-the initial 256-word AppTask stack.
+unit is 32-bit stack words. Hardware testing measured a minimum remaining value
+of 224 words (896 B), so the maximum observed AppTask stack use was 32 words
+(128 B). Keep the initial 256-word AppTask stack until future task features have
+also been measured.
 
 ## Release build verification
 
@@ -112,18 +114,17 @@ The actual compile database uses `STM32F103xB`, STM32F1 HAL/CMSIS,
 `startup_stm32f103xb.s`, and `system_stm32f1xx.c`. It contains no F4 startup,
 system, HAL source, or include path.
 
-## Hardware verification required
+## Hardware verification
 
-The Release build and static ELF checks pass, but hardware behavior has not yet
-been tested for this FreeRTOS image. The development host had no enumerated
-ST-LINK or CAN adapter during this work, so flashing and CAN traffic tests could
-not be executed. Complete these checks on STM32F103RB:
+All first-milestone checks passed on STM32F103RB:
 
-- Confirm scheduler start and a changing AppTask high-water mark.
-- Confirm the one-second LED period.
-- Send CAN ID `0x200`, payload `DE AD`, and confirm Custom bootloader entry.
-- Complete a normal Custom FOTA update with this image.
-- Disconnect CAN during transfer, reconnect it, and confirm the previous
-  Application still boots.
+- FreeRTOS scheduler started; AppTask high-water mark was 224 words.
+- LED one-second period: PASS.
+- CAN ID `0x200`, payload `DE AD` Custom bootloader entry: PASS.
+- Normal Custom FOTA update: PASS.
+- CAN disconnect during transfer followed by reconnect and existing Application
+  boot: PASS.
 
-Do not treat the milestone as hardware-complete until all five checks pass.
+The FreeRTOS Application first milestone is hardware-complete. The interrupted
+transfer result covers the existing Custom staging validation behavior; it does
+not add full A/B rollback protection for power loss during the final copy.
