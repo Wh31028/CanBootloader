@@ -46,14 +46,22 @@ file(GLOB SRC_FILES CONFIGURE_DEPENDS
   App/ap/*.c
   App/ap/boot_can/*.c
   App/common/src/*.c
+  App/freertos/*.c
   App/hw/*.c
   App/hw/src/*.c   
+)
+
+set(FREERTOS_SOURCE_DIR
+  ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/Third_Party/FreeRTOS/Source
 )
 
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     ${SRC_FILES}
+    ${FREERTOS_SOURCE_DIR}/tasks.c
+    ${FREERTOS_SOURCE_DIR}/list.c
+    ${FREERTOS_SOURCE_DIR}/portable/GCC/ARM_CM3/port.c
 )
 
 # Add include paths
@@ -63,8 +71,11 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     App/ap/boot_can
     App/common
     App/common/include
+    App/freertos
     App/hw
-    App/hw/include  
+    App/hw/include
+    ${FREERTOS_SOURCE_DIR}/include
+    ${FREERTOS_SOURCE_DIR}/portable/GCC/ARM_CM3
 )
 
 # Add project symbols (macros)

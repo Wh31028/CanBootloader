@@ -1,6 +1,10 @@
 #include "ap.h"
 
+#include "FreeRTOS.h"
 #include "hw_def.h"
+#include "task.h"
+
+volatile UBaseType_t g_app_task_stack_high_water_mark_words;
 
 // BKP Register에 Magic Number를 기록하고 소프트 리셋
 static void enterFotaMode(void)
@@ -20,7 +24,7 @@ static void enterFotaMode(void)
 #endif
 
   // 100ms 후 소프트 리셋 (UART TX 완료 대기)
-  delay(100);
+  vTaskDelay(pdMS_TO_TICKS(100));
   NVIC_SystemReset();
 }
 
@@ -29,9 +33,6 @@ void apInit(void)
 #ifdef _USE_HW_CLI
   cliOpen(_DEF_UART1, 115200);
   cliLogo();
-#endif
-
-#ifdef _USE_HW_CLI
   cliPrintf("[AP] Firmware Running. Waiting for FOTA request on CAN ID 0x200...\n\r");
 #endif
 }
@@ -41,6 +42,7 @@ void apMain(void)
   uint32_t pre_time;
 
   pre_time = millis();
+  g_app_task_stack_high_water_mark_words = uxTaskGetStackHighWaterMark(NULL);
   while (1)
   {
     // LED 토글 (동작 확인용)
@@ -48,6 +50,7 @@ void apMain(void)
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);
+      g_app_task_stack_high_water_mark_words = uxTaskGetStackHighWaterMark(NULL);
     }
 
     // CAN 메시지 폴링 - FOTA 진입 신호 감지
@@ -69,5 +72,6 @@ void apMain(void)
 #ifdef _USE_HW_CLI
     cliMain();
 #endif
+    vTaskDelay(pdMS_TO_TICKS(1));
   }
 }

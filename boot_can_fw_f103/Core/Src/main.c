@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ap.h"
+#include "freertos_app.h"
 #include "hw_def.h"
 /* USER CODE END Includes */
 
@@ -108,7 +109,7 @@ int main(void)
 
   hwInit();
   apInit();
-  apMain();
+  freertosAppStart();
 
   /* USER CODE END 2 */
 
