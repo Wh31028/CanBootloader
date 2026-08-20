@@ -128,3 +128,39 @@ All first-milestone checks passed on STM32F103RB:
 The FreeRTOS Application first milestone is hardware-complete. The interrupted
 transfer result covers the existing Custom staging validation behavior; it does
 not add full A/B rollback protection for power loss during the final copy.
+
+## ECU_READY GPIO milestone (V3.2)
+
+`ECU_READY` is a level status signal, not a heartbeat. It uses STM32F103RB
+`PA6` (NUCLEO-F103RB Morpho `CN10 pin 13`) connected to BBB `P9_12`
+(`gpio1_28`). The Yocto BBB kernel patch configures `P9_12` as GPIO input with
+an internal pull-down; the hardware must also fit an external 10 kOhm pull-down
+from the net to the common ground.
+
+| STM32 state | ECU_READY |
+| --- | --- |
+| Reset, bootloader, FOTA transfer, AppTask not yet running, or not ready | LOW |
+| `hwInit()` and `apInit()` completed, scheduler started, and `AppTask` entered | HIGH |
+| CAN ID `0x200`, payload `DE AD`, before FOTA magic/reset | LOW |
+
+The CubeMX PA6 configuration is output push-pull, no pull, low speed, with
+the generated initial output level LOW. `ecu_ready` sets LOW again during
+hardware initialization, raises it at the start of `AppTask`, and lowers it
+before the unchanged FOTA magic write and `NVIC_SystemReset()` call. No extra
+FreeRTOS task is used.
+
+The STM32 reset/bootloader state can leave the GPIO Hi-Z, so the external
+pull-down—not MCU firmware—is the hardware guarantee that BBB reads LOW.
+Both ends must use 3.3 V logic and share GND. Do not connect the signal to 5 V.
+Reserve a separate GPIO/net for any future HEARTBEAT signal.
+
+Hardware verification after wiring:
+
+1. Confirm the external 10 kOhm pull-down and common GND, then observe the net
+   with a scope or logic analyzer.
+2. Reset STM32: verify LOW through reset and bootloader.
+3. Boot the Application: verify HIGH only after AppTask begins running.
+4. Send `cansend can0 200#DEAD`: verify LOW occurs before reset and remains LOW
+   during Custom FOTA.
+5. Complete a Custom FOTA update: verify the new Application returns HIGH only
+   after its AppTask starts. Verify any future HEARTBEAT on a separate net.

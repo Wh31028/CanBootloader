@@ -3,6 +3,8 @@
 
 bool hwInit(void)
 {
+  ecuReadyInit();
+
 #ifdef _USE_HW_CLI
   cliInit();
 #endif
