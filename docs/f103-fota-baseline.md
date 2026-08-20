@@ -1,19 +1,19 @@
-# STM32F103RB Custom FOTA Baseline
+# STM32F103RB Custom FOTA 기준선
 
-## Purpose
+## 목적
 
-This document records the F103 FOTA baseline before FreeRTOS work begins.
-The Custom CAN bootloader flow is the selected baseline. FreeRTOS code is not
-included in this baseline.
+이 문서는 FreeRTOS 작업을 시작하기 전 F103 FOTA 기준선을 기록한다.
+선택된 기준선은 Custom CAN bootloader 흐름이며, 이 기준선에는 FreeRTOS 코드가
+포함되지 않는다.
 
-## Build Environment
+## 빌드 환경
 
-- Host: Windows
+- 호스트: Windows
 - Toolchain: STM32CubeCLT 1.19.0, ARM GNU Toolchain 13.3.1
-- Build system: CMake 3.28.1 and Ninja
-- Build profile: Release
+- 빌드 시스템: CMake 3.28.1 및 Ninja
+- 빌드 프로파일: Release
 
-Build commands:
+빌드 명령:
 
 ```powershell
 cmake --preset Release -S boot_can_custom_f103
@@ -24,63 +24,61 @@ cmake --preset Release -S boot_can_fw_f103
 cmake --build boot_can_fw_f103/build/Release
 ```
 
-## Release Build Results
+## Release 빌드 결과
 
-| Image | BIN size | FLASH | RAM | Vector table | Reset_Handler |
+| 이미지 | BIN 크기 | FLASH | RAM | Vector table | Reset_Handler |
 | --- | ---: | ---: | ---: | --- | --- |
 | Custom Bootloader | 8,632 B | 8,632 / 16,384 B (52.69%) | 3,184 / 20,480 B (15.55%) | `0x08000000` | `0x080018B0` |
 | ISO-TP Bootloader | 12,364 B | 12,364 / 16,384 B (75.46%) | 3,928 / 20,480 B (19.18%) | `0x08000000` | `0x080019A4` |
 | Custom Application | 7,772 B | 7,772 / 57,336 B (13.56%) | 3,416 / 20,480 B (16.68%) | `0x08004000` | `0x08005A00` |
 
-The Application linker region is `0x08004000` through `0x08011FF7`
-(`57,336 B`). This matches the maximum Custom firmware size and leaves the
-staging region at `0x08012000` through `0x0801FFFF`.
+Application linker 영역은 `0x08004000`부터 `0x08011FF7`까지
+(`57,336 B`)다. 이는 Custom firmware 최대 크기와 일치하며, staging 영역은
+`0x08012000`부터 `0x0801FFFF`까지 남긴다.
 
-All three builds produced `.elf`, `.bin`, `.hex`, and `.map` files.
+세 빌드는 모두 `.elf`, `.bin`, `.hex`, `.map` 파일을 생성했다.
 
-## Address and HAL Validation
+## 주소 및 HAL 검증
 
-- Both bootloaders link in `0x08000000` through `0x08003FFF` (16 KB).
-- The Custom Application starts at `0x08004000` and is hard-limited to
-  `57,336 B`; it cannot overlap Custom staging.
-- Physical Flash ends at `0x08020000`.
-- Actual build commands use `STM32F1xx_HAL_Driver`,
+- 두 bootloader는 `0x08000000`부터 `0x08003FFF`까지(16 KB)에 link된다.
+- Custom Application은 `0x08004000`에서 시작하고 `57,336 B`로 엄격히
+  제한되므로 Custom staging 영역과 겹칠 수 없다.
+- 물리 Flash는 `0x08020000`에서 끝난다.
+- 실제 빌드 명령은 `STM32F1xx_HAL_Driver`,
   `CMSIS/Device/ST/STM32F1xx`, `startup_stm32f103xb.s`,
-  `system_stm32f1xx.c`, and `STM32F103xB`.
-- No actual F103 build command includes `STM32F4xx_HAL_Driver`,
+  `system_stm32f1xx.c`, `STM32F103xB`를 사용한다.
+- 실제 F103 빌드 명령에는 `STM32F4xx_HAL_Driver`,
   `startup_stm32f407xx.s`, or `system_stm32f4xx.c`.
 
-## Custom FOTA Flow
+## Custom FOTA 흐름
 
-1. The Application receives CAN ID `0x200` with payload `DE AD`.
-2. It stores `0xDEADBEEF` in BKP DR1/DR2 and calls `NVIC_SystemReset()`.
-3. The Custom Bootloader detects the magic value and enters FOTA mode.
-4. Firmware is downloaded to staging at `0x08012000`.
-5. After CRC validation, the Bootloader copies the staged firmware to the
-   Application region at `0x08004000`.
+1. Application이 CAN ID `0x200`, payload `DE AD`를 수신한다.
+2. BKP DR1/DR2에 `0xDEADBEEF`를 저장하고 `NVIC_SystemReset()`을 호출한다.
+3. Custom Bootloader가 magic 값을 감지하고 FOTA mode에 진입한다.
+4. firmware를 `0x08012000`의 staging 영역으로 내려받는다.
+5. CRC 검증 뒤 Bootloader가 staging firmware를 `0x08004000`의
+   Application 영역으로 복사한다.
 
-This protects the existing Application when download transmission is
-interrupted before staging validation completes. It is not a full A/B rollback
-implementation for power loss during the final copy operation.
+이는 staging 검증이 끝나기 전 전송이 중단돼도 기존 Application을 보호한다.
+다만 최종 복사 도중 전원이 손실되는 상황에 대한 완전한 A/B rollback 구현은 아니다.
 
-## Baseline Constraints
+## 기준선 제약
 
-- FreeRTOS is not part of this baseline.
-- Application CLI and debug print paths are disabled for the Custom image.
-- The Application is built with `-Os`.
-- The Custom protocol cannot update an Application larger than 57,336 B.
-- ISO-TP direct-write remains outside this baseline. It has no staging and
-  needs independent transfer-size and write-range hardening before use.
+- FreeRTOS는 이 기준선에 포함되지 않는다.
+- Custom 이미지에서는 Application CLI 및 debug print 경로를 비활성화한다.
+- Application은 `-Os`로 빌드한다.
+- Custom protocol은 57,336 B보다 큰 Application을 갱신할 수 없다.
+- ISO-TP direct-write는 이 기준선 밖이다. staging이 없으므로 사용 전 별도의
+  transfer-size 및 write-range 강화를 해야 한다.
 
-## Hardware Verification Status
+## 하드웨어 검증 상태
 
-- Custom FOTA successfully transferred on the STM32F103RB hardware, as
-  confirmed by the developer.
-- During an interrupted download, disconnecting and reconnecting CAN allowed
-  the existing Application to boot normally, as confirmed by the developer.
-- The repository has no CAN trace or execution log for this run.
+- 개발자가 STM32F103RB 하드웨어에서 Custom FOTA 전송 성공을 확인했다.
+- 개발자가 전송 중 CAN을 분리했다가 다시 연결한 뒤 기존 Application이 정상
+  boot되는 것을 확인했다.
+- 이 실행에 대한 CAN trace나 execution log는 repository에 없다.
 
-## Known Build Warnings
+## 알려진 빌드 경고
 
-- `FLASH_PAGE_SIZE` is redefined in the F103 Flash source files.
-- The ISO-TP Bootloader also reports an unused `SendResponse` function.
+- F103 Flash source 파일에서 `FLASH_PAGE_SIZE`가 재정의된다.
+- ISO-TP Bootloader에서는 사용되지 않는 `SendResponse` 함수 경고도 발생한다.
