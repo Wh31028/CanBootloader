@@ -30,9 +30,9 @@
 
 #define FLASH_ADDR_START 0x08004000
 
-#define FLASH_ADDR_END   0x08020000 // 128KB Limit
+#define FLASH_ADDR_END   0x08014000 // 64 KiB direct-write experiment range
 
-#define FLASH_ADDR_FW_MAX_LEN ((1024 * 56) - 8)
+#define FLASH_ADDR_FW_MAX_LEN (1024 * 64)
 
 #define logPrintf printf
 

@@ -27,14 +27,10 @@
 
 #define FLASH_ADDR_BOOT  0x08000000
 #define FLASH_ADDR_START 0x08004000
-#define FLASH_ADDR_DOWN  0x08012000
-#define FLASH_ADDR_END   0x08020000 // 128KB Limit
+#define FLASH_ADDR_FW    FLASH_ADDR_START
+#define FLASH_ADDR_END   0x08014000 // 64 KiB direct-write experiment range
 
-#define FLASH_ADDR_FW_MAX_LEN ((1024 * 56) - 8) // 56KB 중 메타 헤더(8바이트)를 제외한 크기
-
-// 메타 헤더 (다운로드 구역의 가장 마지막 8바이트)
-#define FLASH_ADDR_META_SIZE  (FLASH_ADDR_END - 8)
-#define FLASH_ADDR_META_CRC   (FLASH_ADDR_END - 4)
+#define FLASH_ADDR_FW_MAX_LEN (1024 * 64)
 
 #define logPrintf(...)
 

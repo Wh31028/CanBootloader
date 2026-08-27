@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #include "isotp_port.h"
 #include <stdarg.h>
 #include <stdio.h>

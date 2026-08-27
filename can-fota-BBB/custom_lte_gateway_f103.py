@@ -17,6 +17,7 @@ SAVE_PATH         = "received_fw.bin"
 CAN_ID_RESP         = 0x101
 CAN_ID_CMD          = 0x100
 CAN_ID_FOTA_REQUEST = 0x200  # App FW에게 FOTA 진입 요청
+MAX_F103_FIRMWARE_SIZE = 64 * 1024
 
 # [Host -> Target] 명령어 (상위 2비트)
 CMD_RX_DATA  = 0x00
@@ -158,6 +159,9 @@ def start_can_fota(firmware_path):
         fw_data = f.read()
 
     fw_size = len(fw_data)
+    if fw_size == 0 or fw_size > MAX_F103_FIRMWARE_SIZE:
+        print(f"[CAN] Error: F103 direct-write experiment supports 1..{MAX_F103_FIRMWARE_SIZE} bytes, got {fw_size} bytes")
+        return
     print(f"[CAN] 전송할 펌웨어 크기: {fw_size} bytes")
 
     fota_start_time = time.time()

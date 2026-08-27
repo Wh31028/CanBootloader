@@ -25,13 +25,11 @@
 // FOTA 진입 Magic Number (boot_can_fw가 쓰고, 부트로더가 읽음)
 #define FOTA_MAGIC_NUMBER  0xDEADBEEFUL
 
-#define FLASH_ADDR_FW 0x8010000 // 64k 뒤에 있음
+#define FLASH_ADDR_FW    0x08004000
+#define FLASH_ADDR_START FLASH_ADDR_FW
+#define FLASH_ADDR_END   0x08014000 // 64 KiB direct-write experiment range
 
-#define FLASH_ADDR_START 0x8010000
-
-#define FLASH_ADDR_END   0x08020000 // 128KB Limit
-
-#define FLASH_ADDR_FW_MAX_LEN (1024 * 64) // 128KB - 64KB(Bootloader)
+#define FLASH_ADDR_FW_MAX_LEN (1024 * 64)
 
 #define logPrintf printf
 

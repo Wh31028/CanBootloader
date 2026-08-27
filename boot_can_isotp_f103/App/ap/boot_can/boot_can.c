@@ -177,12 +177,12 @@ static uint8_t bootIsoTpFlashErase(uint8_t *payload, uint16_t size)
   rx_size          = (uint32_t)payload[1] << 0 | (uint32_t)payload[2] << 8 |
                      (uint32_t)payload[3] << 16 | (uint32_t)payload[4] << 24;
 
-  original_fw_size = rx_size;
-
   if (rx_size == 0 || rx_size > FLASH_ADDR_FW_MAX_LEN)
   {
-    rx_size = FLASH_ADDR_FW_MAX_LEN;
+    return BOOT_ERR_FLASH_ERASE;
   }
+
+  original_fw_size = rx_size;
 
   if (flashErase(FLASH_ADDR_FW, rx_size) == true)
     return BOOT_OK;

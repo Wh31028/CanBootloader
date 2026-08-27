@@ -29,6 +29,7 @@ retransmitted_frames = 0
 total_transmission_time = 0.0
 
 CAN_ID_FOTA_REQUEST = 0x200  # App FW에게 FOTA 진입 요청
+MAX_F103_FIRMWARE_SIZE = 64 * 1024
 
 # 로그 파일 경로
 LOG_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -241,6 +242,9 @@ def start_can_fota(firmware_path):
             print(f"[CAN] 테스트용 패턴 패딩 완료: {TARGET_SIZE_KB}KB 로 확장됨")
             
     fw_size = len(fw_data)
+    if fw_size == 0 or fw_size > MAX_F103_FIRMWARE_SIZE:
+        print(f"[CAN] Error: F103 direct-write experiment supports 1..{MAX_F103_FIRMWARE_SIZE} bytes, got {fw_size} bytes")
+        return
     print(f"[CAN] 전송할 펌웨어 크기: {fw_size} bytes")
     print(f"[CAN] RAW ISO-TP 측정 시작 (Pure SocketCAN 최적화 적용) (Packet Loss: {LOSS_RATE*100}%)")
 

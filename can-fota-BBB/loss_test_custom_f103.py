@@ -127,6 +127,7 @@ def download_firmware_via_lte(url, save_path):
 # 3. SocketCAN 통신 (비트맵 NACK 적용)
 # ==========================================
 CAN_ID_FOTA_REQUEST = 0x200  # App FW에게 FOTA 진입 요청
+MAX_F103_FIRMWARE_SIZE = 64 * 1024
 
 def build_can_frame(can_id, data_list):
     data_bytes = bytes(data_list)
@@ -216,6 +217,9 @@ def start_can_fota(firmware_path):
             print(f"[CAN] 테스트용 패턴(0x00~0xFF) 패딩 완료: {TARGET_SIZE_KB}KB 로 확장됨")
             
     fw_size = len(fw_data)
+    if fw_size == 0 or fw_size > MAX_F103_FIRMWARE_SIZE:
+        print(f"[CAN] Error: F103 direct-write experiment supports 1..{MAX_F103_FIRMWARE_SIZE} bytes, got {fw_size} bytes")
+        return
     print(f"[CAN] 전송할 펌웨어 크기: {fw_size} bytes")
     print(f"[CAN] 측정 시작 (Packet Loss: {LOSS_RATE*100}%)")
 

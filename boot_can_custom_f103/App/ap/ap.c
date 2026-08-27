@@ -2,8 +2,6 @@
 #include "boot_can.h"
 #include "hw_def.h"
 
-static bool fota_timeout_enable = false;
-
 // RTC Backup Register DR0에서 Magic Number 확인 후 플래그 초기화
 static bool checkFotaRequest(void)
 {
@@ -64,27 +62,8 @@ void apInit(void)
     else
     {
 #ifdef _USE_HW_CLI
-      cliPrintf("[BOOT] No valid App found. Checking for Auto-Recovery...\n\r");
+      cliPrintf("[BOOT] No valid App found. Entering FOTA mode.\n\r");
 #endif
-      if (bootAutoRecover() == true)
-      {
-#ifdef _USE_HW_CLI
-        cliPrintf("[BOOT] Auto-Recovery Success! Jumping to App...\n\r");
-#endif
-        delay(50);
-        extern void bootJump(uint32_t sp, uint32_t pc);
-        uint32_t sp = *(__IO uint32_t *)FLASH_ADDR_START;
-        uint32_t pc = *(__IO uint32_t *)(FLASH_ADDR_START + 4);
-        __disable_irq();
-        SCB->VTOR = FLASH_ADDR_START;
-        bootJump(sp, pc);
-      }
-      else
-      {
-#ifdef _USE_HW_CLI
-        cliPrintf("[BOOT] Auto-Recovery Failed. Entering FOTA mode.\n\r");
-#endif
-      }
     }
   }
   else
@@ -92,7 +71,6 @@ void apInit(void)
 #ifdef _USE_HW_CLI
     cliPrintf("[BOOT] FOTA request detected! Entering FOTA mode.\n\r");
 #endif
-    fota_timeout_enable = true; // 통신 유실 대비 타임아웃 활성화
   }
 
   // FOTA 모드: 부트로더 초기화
@@ -112,23 +90,6 @@ void apMain(void)
   while (1)
   {
     bootProcess();
-
-    // CAN 통신 단절 감지 (10초 타임아웃)
-    if (fota_timeout_enable)
-    {
-      if (millis() - bootGetLastRxTime() > 10000)
-      {
-        // 앱 영역이 유효할 때만 점프 (업데이트 실패 후 구버전으로 복귀)
-        if (bootVerifyFw() == true)
-        {
-#ifdef _USE_HW_CLI
-          cliPrintf("\n\r[BOOT Error] FOTA Timeout! CAN Link Lost. Jumping to App...\n\r");
-#endif
-          delay(100);
-          JumpToFw();
-        }
-      }
-    }
 
     if (millis() - pre_time >= 100) // 부트로더는 100ms 주기로 빠르게 깜빡임
     {

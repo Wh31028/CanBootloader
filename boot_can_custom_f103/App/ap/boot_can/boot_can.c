@@ -7,14 +7,13 @@
 // 펌웨어 데이터 버퍼 (256바이트 페이지 단위)
 #define BOOT_BUF_SIZE 256
 static uint8_t boot_buf[BOOT_BUF_SIZE];
-static uint32_t fw_addr = FLASH_ADDR_DOWN;  // 다운로드 구역 주소
+static uint32_t fw_addr = FLASH_ADDR_FW;  // Direct-write application address
 static uint32_t original_fw_size     = 0; // 원본 파일 크기 저장용 (CRC 계산용)
 static uint32_t total_received_bytes = 0;
 
 // 블록별 수신 상태 관리
 static uint64_t rx_block_map            = 0;
 static uint8_t expected_frames_in_block = 37; // 256/7 = 36.57 -> 37프레임
-static uint32_t boot_last_rx_time       = 0;
 
 static void SendResponse(uint8_t cmd, uint8_t result_or_seq);
 static void SendNackMap(uint64_t map);
@@ -22,16 +21,14 @@ static void bootProcessStart(can_msg_t *msg);
 static void bootProcessData(can_msg_t *msg, uint8_t seq);
 static void bootProcessEnd(can_msg_t *msg);
 static void bootProcessJump(can_msg_t *msg);
-bool bootVerifyFw(void);
-void JumpToFw(void);
+static bool bootVerifyFw(void);
+static void JumpToFw(void);
 static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length);
-bool bootCopyFw(uint32_t fw_size);
 
 void bootInit(void)
 {
   rx_block_map         = 0;
   total_received_bytes = 0;
-  boot_last_rx_time    = millis();
 }
 
 void bootProcess(void)
@@ -44,8 +41,6 @@ void bootProcess(void)
     // Host -> Target ID: 0x100
     if (msg.id == 0x100 && msg.dlc > 0)
     {
-      boot_last_rx_time = millis(); // 통신 수신 시간 갱신
-
       uint8_t header = msg.data[0];
       uint8_t cmd    = GET_CMD(header);
       uint8_t seq    = GET_SEQ(header);
@@ -71,7 +66,7 @@ void bootProcess(void)
 
 static void bootProcessStart(can_msg_t *msg)
 {
-  fw_addr          = FLASH_ADDR_DOWN;
+  fw_addr          = FLASH_ADDR_FW;
   uint8_t status   = BOOT_OK;
   uint32_t rx_size = 0;
 
@@ -87,14 +82,15 @@ static void bootProcessStart(can_msg_t *msg)
     rx_size |= (uint32_t)msg->data[4] << 24;
   }
 
-  original_fw_size = rx_size;
-
   if (rx_size == 0 || rx_size > FLASH_ADDR_FW_MAX_LEN)
   {
-    rx_size = FLASH_ADDR_FW_MAX_LEN;
+    SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_ERASE);
+    return;
   }
 
-  if (flashErase(FLASH_ADDR_DOWN, 1024 * 56) == true)
+  original_fw_size = rx_size;
+
+  if (flashErase(FLASH_ADDR_FW, rx_size) == true)
   {
     status = BOOT_OK;
   }
@@ -177,27 +173,12 @@ static void bootProcessEnd(can_msg_t *msg)
                    (uint32_t)msg->data[3] << 16 | (uint32_t)msg->data[4] << 24;
   }
 
-  uint32_t calculated_crc = calculate_crc32(FLASH_ADDR_DOWN, original_fw_size);
+  uint32_t calculated_crc = calculate_crc32(FLASH_ADDR_FW, original_fw_size);
 
   if (calculated_crc == received_crc)
   {
-    // 검증 성공 -> 1. 메타 헤더(Size, CRC) 기록
-    flashWrite(FLASH_ADDR_META_SIZE, (uint8_t *)&original_fw_size, 4);
-    flashWrite(FLASH_ADDR_META_CRC, (uint8_t *)&received_crc, 4);
-
-    // 2. 실행 구역으로 복사
-    bool copy_success = bootCopyFw(original_fw_size);
-
-    if (copy_success)
-    {
-      status = BOOT_OK;
-      SendResponse(CMD_TX_ACK, 0);
-    }
-    else
-    {
-      status = BOOT_ERR_FLASH_WRITE;
-      SendResponse(CMD_TX_ERR, status);
-    }
+    status = BOOT_OK;
+    SendResponse(CMD_TX_ACK, 0);
   }
   else
   {
@@ -221,7 +202,7 @@ static void bootProcessJump(can_msg_t *msg)
   }
 }
 
-bool bootVerifyFw(void)
+static bool bootVerifyFw(void)
 {
   uint32_t *jump_addr = (uint32_t *)(FLASH_ADDR_START + 4);
 
@@ -244,7 +225,7 @@ __attribute__((naked)) void bootJump(uint32_t sp, uint32_t pc)
   );
 }
 
-void JumpToFw(void)
+static void JumpToFw(void)
 {
   delay(50);
   
@@ -264,11 +245,6 @@ void JumpToFw(void)
 
   // 어셈블리 점프 함수 호출 (이후 컴파일러의 불필요한 pop 동작 원천 차단)
   bootJump(sp, pc);
-}
-
-uint32_t bootGetLastRxTime(void)
-{
-  return boot_last_rx_time;
 }
 
 // 응답 헤더 구성 후 전송
@@ -319,82 +295,4 @@ static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length)
     }
   }
   return ~crc;
-}
-
-bool bootCopyFw(uint32_t fw_size)
-{
-  bool copy_success = true;
-  if (flashErase(FLASH_ADDR_START, fw_size) == true)
-  {
-    // 안전장치: 전원이 끊겼을 때를 대비해, 부팅 여부를 결정하는 '첫 번째 블록'을 가장 마지막에 복사합니다.
-    uint32_t offset = BOOT_BUF_SIZE;
-    while (offset < fw_size)
-    {
-      uint32_t copy_len = (fw_size - offset > BOOT_BUF_SIZE) ? BOOT_BUF_SIZE : (fw_size - offset);
-      if (flashWrite(FLASH_ADDR_START + offset, (uint8_t *)(FLASH_ADDR_DOWN + offset), copy_len) != true)
-      {
-        copy_success = false;
-        break;
-      }
-      offset += copy_len;
-    }
-
-    // 나머지 펌웨어가 모두 정상 복사되었을 때만 마지막으로 첫 번째 블록(인터럽트 벡터 테이블)을 복사!
-    if (copy_success)
-    {
-      uint32_t first_len = (fw_size > BOOT_BUF_SIZE) ? BOOT_BUF_SIZE : fw_size;
-      
-      // 1. 오프셋 8부터 나머지 벡터 테이블(예: 8 ~ 255)을 먼저 복사
-      if (first_len > 8)
-      {
-        if (flashWrite(FLASH_ADDR_START + 8, ((uint8_t *)FLASH_ADDR_DOWN) + 8, first_len - 8) != true)
-        {
-          copy_success = false;
-        }
-      }
-
-      // 2. 가장 마지막 순간에 오프셋 0~7 (Initial SP 및 Reset Vector) 복사!!
-      // 이렇게 하면 SP와 Reset Vector가 온전히 적히기 전까지는 부트로더가 절대 점프하지 않음.
-      if (copy_success)
-      {
-        if (flashWrite(FLASH_ADDR_START, (uint8_t *)FLASH_ADDR_DOWN, 8) != true)
-        {
-          copy_success = false;
-        }
-      }
-    }
-  }
-  else
-  {
-    copy_success = false;
-  }
-  return copy_success;
-}
-
-bool bootAutoRecover(void)
-{
-  // 1. 읽어온 메타 헤더
-  uint32_t meta_size = *(uint32_t *)FLASH_ADDR_META_SIZE;
-  uint32_t meta_crc  = *(uint32_t *)FLASH_ADDR_META_CRC;
-
-  // 2. 유효한 사이즈인지 검사
-  if (meta_size == 0 || meta_size > FLASH_ADDR_FW_MAX_LEN || meta_size == 0xFFFFFFFF)
-  {
-    return false; // 복구 불가
-  }
-
-  // 3. 다운로드 구역의 CRC 계산
-  uint32_t calc_crc = calculate_crc32(FLASH_ADDR_DOWN, meta_size);
-
-  // 4. CRC가 일치하면 다운로드 구역이 온전하다는 뜻! 복사 재개!
-  if (calc_crc == meta_crc)
-  {
-    // 다운로드 구역이 온전하므로 다시 복사를 시도합니다.
-    if (bootCopyFw(meta_size) == true)
-    {
-      return true; // 복구 성공
-    }
-  }
-
-  return false;
 }

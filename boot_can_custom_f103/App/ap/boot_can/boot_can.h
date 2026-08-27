@@ -27,16 +27,6 @@
 #define GET_SEQ(header)       (header & 0x3F)
 
 void bootInit(void);
-void bootProcess(void);
-
-bool bootAutoRecover(void);
-
-bool bootVerifyFw(void);
-void JumpToFw(void);
-
-uint32_t bootGetLastRxTime(void);
-
-// 내부 함수이지만 혹시 외부 참조 필요시를 대비
-bool bootCopyFw(uint32_t fw_size);
+void bootProcess(void); // 메인 루프에서 계속 돌릴 함수
 
 #endif
