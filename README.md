@@ -75,10 +75,5 @@ reference/              발표자료 (사용자 제공, Git untracked)
 - [Benchmark study](docs/benchmark-study.md)
 - [Protocol comparison](docs/protocol-comparison.md)
 - [STM32F407 benchmark](docs/f407-benchmark.md)
-- 발표자료: [`reference/capstone-presentation.pptx`](reference/capstone-presentation.pptx)
+- 발표자료: [`reference/capstone-presentation.pdf`](reference/capstone-presentation.pdf)
 
-## 팀원 및 역할
-
-| 이름 | 역할 |
-|---|---|
-|  |  |
