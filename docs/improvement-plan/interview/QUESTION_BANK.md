@@ -13,9 +13,9 @@
 
 | ID | Task | 질문 | Note | 상태 |
 | --- | --- | --- | --- | --- |
-| Q-TW00-01 | TW-00 | 전체 FOTA 경로와 각 component의 책임을 설명할 수 있는가? | 생성 예정 | TODO |
-| Q-TW00-02 | TW-00 | 현재 target이 F407이 아니라 F103이라고 판단한 근거는 무엇인가? | 생성 예정 | TODO |
-| Q-TW00-03 | TW-00 | 과거 direct-write benchmark와 현재 staging 구조를 왜 분리해야 하는가? | 생성 예정 | TODO |
+| Q-TW00-01 | TW-00 | 전체 FOTA 경로와 각 component의 책임을 설명할 수 있는가? | [TW-00](TW-00.md#30초-답변) | DRAFT |
+| Q-TW00-02 | TW-00 | 현재 target이 F407이 아니라 F103이라고 판단한 근거는 무엇인가? | [TW-00](TW-00.md#30초-답변) | DRAFT |
+| Q-TW00-03 | TW-00 | 과거 direct-write benchmark와 현재 staging 구조를 왜 분리해야 하는가? | [TW-00](TW-00.md#30초-답변) | DRAFT |
 | Q-TW01-01 | TW-01 | Bootloader protocol에 명시적 state machine이 필요한 이유는 무엇인가? | 생성 예정 | TODO |
 | Q-TW01-02 | TW-01 | Invalid size와 잘못된 DLC가 어떤 flash 위험으로 이어질 수 있는가? | 생성 예정 | TODO |
 | Q-TW01-03 | TW-01 | Duplicate와 out-of-order DATA를 어떤 정책으로 처리했는가? | 생성 예정 | TODO |
@@ -62,4 +62,3 @@
 | Q-PROJ-03 | 장비 제약 안에서 fault injection의 신뢰성을 어떻게 확보했는가? | TW-05/F2 | TODO |
 | Q-PROJ-04 | 현재 구현과 실제 automotive production bootloader의 가장 큰 차이는 무엇인가? | TW-05/F3/F6 | TODO |
 | Q-PROJ-05 | 다시 설계한다면 hardware와 protocol에서 무엇을 바꾸겠는가? | F3/F6 | TODO |
-
