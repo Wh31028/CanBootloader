@@ -8,6 +8,11 @@
 #define BOOT_ERR_FLASH_WRITE 0x04
 #define BOOT_ERR_FLASH_JUMP  0x05
 #define BOOT_ERR_CRC         0x06
+#define BOOT_ERR_INVALID_STATE    0x07
+#define BOOT_ERR_INVALID_SIZE     0x08
+#define BOOT_ERR_INVALID_DLC      0x09
+#define BOOT_ERR_INVALID_SEQUENCE 0x0A
+#define BOOT_ERR_INCOMPLETE_IMAGE 0x0B
 
 // Custom Protocol Commands (2-bit)
 // Host->Target (RX_CMD)

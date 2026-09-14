@@ -16,9 +16,9 @@
 | Q-TW00-01 | TW-00 | 전체 FOTA 경로와 각 component의 책임을 설명할 수 있는가? | [TW-00](TW-00.md#30초-답변) | DRAFT |
 | Q-TW00-02 | TW-00 | 현재 target이 F407이 아니라 F103이라고 판단한 근거는 무엇인가? | [TW-00](TW-00.md#30초-답변) | DRAFT |
 | Q-TW00-03 | TW-00 | 과거 direct-write benchmark와 현재 staging 구조를 왜 분리해야 하는가? | [TW-00](TW-00.md#30초-답변) | DRAFT |
-| Q-TW01-01 | TW-01 | Bootloader protocol에 명시적 state machine이 필요한 이유는 무엇인가? | 생성 예정 | TODO |
-| Q-TW01-02 | TW-01 | Invalid size와 잘못된 DLC가 어떤 flash 위험으로 이어질 수 있는가? | 생성 예정 | TODO |
-| Q-TW01-03 | TW-01 | Duplicate와 out-of-order DATA를 어떤 정책으로 처리했는가? | 생성 예정 | TODO |
+| Q-TW01-01 | TW-01 | Bootloader protocol에 명시적 state machine이 필요한 이유는 무엇인가? | [TW-01](TW-01.md#30초-답변) | DRAFT |
+| Q-TW01-02 | TW-01 | Invalid size와 잘못된 DLC가 어떤 flash 위험으로 이어질 수 있는가? | [TW-01](TW-01.md#30초-답변) | DRAFT |
+| Q-TW01-03 | TW-01 | Duplicate와 out-of-order DATA를 어떤 정책으로 처리했는가? | [TW-01](TW-01.md#30초-답변) | DRAFT |
 | Q-TW02-01 | TW-02 | Flash erase 단위와 program alignment가 copy 설계에 미치는 영향은 무엇인가? | 생성 예정 | TODO |
 | Q-TW02-02 | TW-02 | Initial MSP, Reset Handler, Thumb bit를 왜 검증해야 하는가? | 생성 예정 | TODO |
 | Q-TW02-03 | TW-02 | Vector-last copy는 true A/B나 atomic update와 어떻게 다른가? | 생성 예정 | TODO |

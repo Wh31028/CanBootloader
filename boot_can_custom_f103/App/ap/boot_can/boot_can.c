@@ -6,6 +6,7 @@
 
 // 펌웨어 데이터 버퍼 (256바이트 페이지 단위)
 #define BOOT_BUF_SIZE 256
+#define BOOT_FRAME_PAYLOAD_SIZE 7
 static uint8_t boot_buf[BOOT_BUF_SIZE];
 static uint32_t fw_addr = FLASH_ADDR_DOWN;  // 다운로드 구역 주소
 static uint32_t original_fw_size     = 0; // 원본 파일 크기 저장용 (CRC 계산용)
@@ -16,12 +17,23 @@ static uint64_t rx_block_map            = 0;
 static uint8_t expected_frames_in_block = 37; // 256/7 = 36.57 -> 37프레임
 static uint32_t boot_last_rx_time       = 0;
 
+typedef enum
+{
+  BOOT_STATE_IDLE = 0,
+  BOOT_STATE_RECEIVING,
+  BOOT_STATE_IMAGE_VERIFIED,
+  BOOT_STATE_FAILED,
+} boot_state_t;
+
+static boot_state_t boot_state = BOOT_STATE_IDLE;
+
 static void SendResponse(uint8_t cmd, uint8_t result_or_seq);
 static void SendNackMap(uint64_t map);
 static void bootProcessStart(can_msg_t *msg);
 static void bootProcessData(can_msg_t *msg, uint8_t seq);
 static void bootProcessEnd(can_msg_t *msg);
 static void bootProcessJump(can_msg_t *msg);
+static void bootResetReceiveContext(void);
 bool bootVerifyFw(void);
 void JumpToFw(void);
 static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length);
@@ -29,8 +41,8 @@ bool bootCopyFw(uint32_t fw_size);
 
 void bootInit(void)
 {
-  rx_block_map         = 0;
-  total_received_bytes = 0;
+  bootResetReceiveContext();
+  boot_state            = BOOT_STATE_IDLE;
   boot_last_rx_time    = millis();
 }
 
@@ -71,74 +83,94 @@ void bootProcess(void)
 
 static void bootProcessStart(can_msg_t *msg)
 {
-  fw_addr          = FLASH_ADDR_DOWN;
-  uint8_t status   = BOOT_OK;
-  uint32_t rx_size = 0;
-
-  memset(boot_buf, 0xFF, BOOT_BUF_SIZE);
-  rx_block_map         = 0;
-  total_received_bytes = 0;
-
-  if (msg->dlc >= 5)
+  if (msg->dlc != 5)
   {
-    rx_size = (uint32_t)msg->data[1] << 0;
-    rx_size |= (uint32_t)msg->data[2] << 8;
-    rx_size |= (uint32_t)msg->data[3] << 16;
-    rx_size |= (uint32_t)msg->data[4] << 24;
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_DLC);
+    return;
   }
 
-  original_fw_size = rx_size;
+  if (GET_SEQ(msg->data[0]) != 0)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_SEQUENCE);
+    return;
+  }
+
+  uint32_t rx_size = (uint32_t)msg->data[1] << 0;
+  rx_size |= (uint32_t)msg->data[2] << 8;
+  rx_size |= (uint32_t)msg->data[3] << 16;
+  rx_size |= (uint32_t)msg->data[4] << 24;
 
   if (rx_size == 0 || rx_size > FLASH_ADDR_FW_MAX_LEN)
   {
-    rx_size = FLASH_ADDR_FW_MAX_LEN;
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_SIZE);
+    return;
   }
 
   if (flashErase(FLASH_ADDR_DOWN, 1024 * 56) == true)
   {
-    status = BOOT_OK;
-  }
-  else
-  {
-    status = BOOT_ERR_FLASH_ERASE;
-  }
-
-  if (status == BOOT_OK)
-  {
+    bootResetReceiveContext();
+    original_fw_size = rx_size;
+    boot_state = BOOT_STATE_RECEIVING;
     SendResponse(CMD_TX_ACK, 0);
   }
   else
   {
-    SendResponse(CMD_TX_ERR, status);
+    boot_state = BOOT_STATE_FAILED;
+    SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_ERASE);
   }
 }
 
 static void bootProcessData(can_msg_t *msg, uint8_t seq)
 {
-  if (seq > 36)
+  if (boot_state != BOOT_STATE_RECEIVING)
   {
-    return; // Ignore invalid sequences (max 37 frames for 256 bytes)
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_STATE);
+    return;
   }
 
-  // 1. 버퍼 복사 (7바이트 단위, 마지막 프레임은 남은 바이트만큼)
-  uint32_t offset     = seq * 7;
-  uint8_t payload_len = msg->dlc - 1;
-
-  if (offset + payload_len <= BOOT_BUF_SIZE)
+  if (total_received_bytes >= original_fw_size)
   {
-    memcpy(&boot_buf[offset], &msg->data[1], payload_len);
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INCOMPLETE_IMAGE);
+    return;
   }
 
-  // 2. 해당 시퀀스 비트 마킹
-  rx_block_map |= (1ULL << seq);
-
-  // 현재 받아야 할 프레임 개수 계산
-  uint32_t rem_bytes = original_fw_size - total_received_bytes;
+  uint32_t remaining_bytes = original_fw_size - total_received_bytes;
   uint32_t block_expected_bytes =
-      (rem_bytes > BOOT_BUF_SIZE) ? BOOT_BUF_SIZE : rem_bytes;
-  expected_frames_in_block = (block_expected_bytes + 6) / 7;
+      (remaining_bytes > BOOT_BUF_SIZE) ? BOOT_BUF_SIZE : remaining_bytes;
+  expected_frames_in_block =
+      (uint8_t)((block_expected_bytes + BOOT_FRAME_PAYLOAD_SIZE - 1) /
+                BOOT_FRAME_PAYLOAD_SIZE);
 
-  // 3. 기대하는 모든 프레임을 수신했는지 확인
+  if (seq >= expected_frames_in_block)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_SEQUENCE);
+    return;
+  }
+
+  uint32_t offset = (uint32_t)seq * BOOT_FRAME_PAYLOAD_SIZE;
+  uint32_t frame_remaining = block_expected_bytes - offset;
+  uint8_t expected_payload_len =
+      (frame_remaining > BOOT_FRAME_PAYLOAD_SIZE) ? BOOT_FRAME_PAYLOAD_SIZE : frame_remaining;
+
+  if (msg->dlc != expected_payload_len + 1)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_DLC);
+    return;
+  }
+
+  uint64_t sequence_bit = 1ULL << seq;
+  if ((rx_block_map & sequence_bit) != 0)
+  {
+    if (seq == (expected_frames_in_block - 1))
+    {
+      SendNackMap(rx_block_map);
+    }
+    return;
+  }
+
+  memcpy(&boot_buf[offset], &msg->data[1], expected_payload_len);
+  rx_block_map |= sequence_bit;
+
   uint64_t target_map = (1ULL << expected_frames_in_block) - 1;
 
   if ((rx_block_map & target_map) == target_map)
@@ -155,6 +187,7 @@ static void bootProcessData(can_msg_t *msg, uint8_t seq)
     }
     else
     {
+      boot_state = BOOT_STATE_FAILED;
       SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_WRITE);
     }
   }
@@ -168,14 +201,32 @@ static void bootProcessData(can_msg_t *msg, uint8_t seq)
 
 static void bootProcessEnd(can_msg_t *msg)
 {
-  uint8_t status        = BOOT_OK;
-  uint32_t received_crc = 0;
-
-  if (msg->dlc >= 5)
+  if (boot_state != BOOT_STATE_RECEIVING)
   {
-    received_crc = (uint32_t)msg->data[1] << 0 | (uint32_t)msg->data[2] << 8 |
-                   (uint32_t)msg->data[3] << 16 | (uint32_t)msg->data[4] << 24;
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_STATE);
+    return;
   }
+
+  if (msg->dlc != 5)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_DLC);
+    return;
+  }
+
+  if (GET_SEQ(msg->data[0]) != 0)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_SEQUENCE);
+    return;
+  }
+
+  if (total_received_bytes != original_fw_size || rx_block_map != 0)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INCOMPLETE_IMAGE);
+    return;
+  }
+
+  uint32_t received_crc = (uint32_t)msg->data[1] << 0 | (uint32_t)msg->data[2] << 8 |
+                          (uint32_t)msg->data[3] << 16 | (uint32_t)msg->data[4] << 24;
 
   uint32_t calculated_crc = calculate_crc32(FLASH_ADDR_DOWN, original_fw_size);
 
@@ -190,25 +241,42 @@ static void bootProcessEnd(can_msg_t *msg)
 
     if (copy_success)
     {
-      status = BOOT_OK;
+      boot_state = BOOT_STATE_IMAGE_VERIFIED;
       SendResponse(CMD_TX_ACK, 0);
     }
     else
     {
-      status = BOOT_ERR_FLASH_WRITE;
-      SendResponse(CMD_TX_ERR, status);
+      boot_state = BOOT_STATE_FAILED;
+      SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_WRITE);
     }
   }
   else
   {
-    status = BOOT_ERR_CRC;
-    SendResponse(CMD_TX_ERR, status);
+    boot_state = BOOT_STATE_FAILED;
+    SendResponse(CMD_TX_ERR, BOOT_ERR_CRC);
   }
 }
 
 static void bootProcessJump(can_msg_t *msg)
 {
-  (void)msg;
+  if (msg->dlc != 1)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_DLC);
+    return;
+  }
+
+  if (GET_SEQ(msg->data[0]) != 0)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_SEQUENCE);
+    return;
+  }
+
+  if (boot_state != BOOT_STATE_IMAGE_VERIFIED)
+  {
+    SendResponse(CMD_TX_ERR, BOOT_ERR_INVALID_STATE);
+    return;
+  }
+
   if (bootVerifyFw() == true)
   {
     SendResponse(CMD_TX_ACK, 0);
@@ -217,8 +285,19 @@ static void bootProcessJump(can_msg_t *msg)
   }
   else
   {
+    boot_state = BOOT_STATE_FAILED;
     SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_JUMP);
   }
+}
+
+static void bootResetReceiveContext(void)
+{
+  fw_addr = FLASH_ADDR_DOWN;
+  original_fw_size = 0;
+  total_received_bytes = 0;
+  rx_block_map = 0;
+  expected_frames_in_block = 0;
+  memset(boot_buf, 0xFF, BOOT_BUF_SIZE);
 }
 
 bool bootVerifyFw(void)

@@ -81,10 +81,10 @@ Command와 response는 같은 2-bit 위치를 사용하지만 namespace가 방�
 | 4 | `firmware_size[31:24]` |
 
 - DLC: 5
-- Target action: receive state와 256-byte buffer를 초기화하고 staging `0x08012000`부터 56 KiB 전체를 erase합니다.
-- 성공: `ACK`; erase 실패: `ERR(0x03)`
+- Target action: DLC가 정확히 5이고 header의 하위 6 bits가 0이며 `1 <= firmware_size <= 57,336`일 때만 receive context를 초기화하고 staging `0x08012000`부터 56 KiB 전체를 erase합니다.
+- 성공: `ACK`; erase 실패: `ERR(0x03)`; invalid size: `ERR(0x08)`; invalid DLC: `ERR(0x09)`; reserved header sequence: `ERR(0x0A)`
 
-현재 target은 size가 0이거나 57,336 B를 초과해도 `original_fw_size`에는 원래 값을 남기고 별도 local 값만 clamp합니다. Host도 target profile별 상한을 검사하지 않습니다. 따라서 현재 구현이 정상적으로 처리하는 입력은 valid vector table을 포함한 57,336 B 이하의 F103 application image입니다.
+invalid START는 erase와 receive context 변경을 수행하지 않습니다. Host도 target profile별 상한을 사전 검사하지 않으므로 target 검사가 최종 경계입니다. 정상 입력은 valid vector table을 포함한 57,336 B 이하의 F103 application image입니다.
 
 ### DATA
 
@@ -99,7 +99,9 @@ Command와 response는 같은 2-bit 위치를 사용하지만 namespace가 방�
 - Full block에서 seq 0–35는 각 7 bytes, seq 36은 4 bytes를 운반합니다.
 - Target은 block buffer를 `0xFF`로 초기화하고 block 완료 시 항상 256 bytes를 staging에 씁니다. 마지막 block의 logical CRC 길이는 원본 size까지만이며 padding은 제외됩니다.
 
-`seq > 36`은 target이 응답 없이 무시합니다. Explicit block number, absolute offset, session ID는 없습니다.
+Target은 `RECEIVING` state에서만 DATA를 처리합니다. 현재 block의 `seq < ceil(block_len / 7)`와 정확한 DLC(`1 + min(7, block_len - seq * 7)`)가 모두 맞아야 buffer copy와 bitmap mark를 수행합니다. 잘못된 sequence/DLC는 각각 `ERR(0x0A)`/`ERR(0x09)`이고 bitmap은 변하지 않습니다.
+
+같은 block에서 이미 mark된 sequence는 buffer를 overwrite하지 않습니다. duplicate가 마지막 expected sequence이면 현재 bitmap NACK을 다시 전송합니다. Explicit block number, absolute offset, session ID는 없습니다.
 
 ### END
 
@@ -112,7 +114,7 @@ Command와 response는 같은 2-bit 위치를 사용하지만 namespace가 방�
 | 4 | `crc32[31:24]` |
 
 - DLC: 5
-- Target은 START에서 받은 original firmware size만큼 staging CRC를 계산합니다.
+- Target은 `RECEIVING` state에서 모든 logical firmware byte가 block write까지 완료되고 receive bitmap이 비어 있으며 DLC가 정확히 5일 때만 START에서 받은 original firmware size만큼 staging CRC를 계산합니다.
 - CRC가 맞으면 size/CRC metadata를 기록하고 active application을 erase/copy합니다.
 - 성공: `ACK`; CRC 불일치: `ERR(0x06)`; copy 실패: `ERR(0x04)`
 
@@ -123,7 +125,7 @@ Command와 response는 같은 2-bit 위치를 사용하지만 namespace가 방�
 | 0 | `0xC0` (`JUMP`) |
 
 - DLC: 1
-- Target은 `0x08004004`의 Reset Handler가 application 범위에 있는지 검사합니다.
+- Target은 DLC가 정확히 1이고 `IMAGE_VERIFIED` state일 때만 `0x08004004`의 Reset Handler가 application 범위에 있는지 검사합니다. 따라서 START 없이 받은 JUMP는 application으로 전이하지 않고 `ERR(0x07)`을 반환합니다.
 - 성공 시 ACK를 보내고 약 100 ms 뒤 VTOR/MSP를 전환하여 application으로 jump합니다.
 - 실패 시 `ERR(0x05)`를 보냅니다.
 - BBB flasher는 현재 JUMP response를 기다리지 않습니다.
@@ -172,10 +174,24 @@ DLC는 2입니다. START erase, 각 256-byte block write, END copy 및 JUMP vali
 | `0x04` | `BOOT_ERR_FLASH_WRITE` | Staging write 또는 active copy 실패 |
 | `0x05` | `BOOT_ERR_FLASH_JUMP` | Reset Handler 범위 검사 실패 |
 | `0x06` | `BOOT_ERR_CRC` | END의 expected CRC와 staging CRC 불일치 |
+| `0x07` | `BOOT_ERR_INVALID_STATE` | 현재 state에서 허용되지 않는 DATA/END/JUMP |
+| `0x08` | `BOOT_ERR_INVALID_SIZE` | START size가 0 또는 57,336 B 초과 |
+| `0x09` | `BOOT_ERR_INVALID_DLC` | command의 DLC가 정확한 packet layout과 불일치 |
+| `0x0A` | `BOOT_ERR_INVALID_SEQUENCE` | DATA 또는 control header의 sequence가 허용 범위를 벗어남 |
+| `0x0B` | `BOOT_ERR_INCOMPLETE_IMAGE` | END 전에 logical byte/block 수신이 완료되지 않음 |
 
 BBB parser는 header 하위 6 bits를 error code로 해석합니다.
 
-## Sequence와 block 상태
+## Session state, sequence와 block 상태
+
+TW-01부터 target은 wire format을 바꾸지 않고 다음 local state를 적용합니다. `START`는 어느 local state에서나 새 update를 시작할 수 있지만, packet 자체가 invalid이면 이전 receive context와 staging을 변경하지 않습니다.
+
+| 현재 state | 허용 command | 성공 후 state | 거부 command/실패 후 state |
+| --- | --- | --- | --- |
+| `IDLE` | valid `START` | erase 성공 시 `RECEIVING` | DATA/END/JUMP는 `ERR(0x07)`, state 유지 |
+| `RECEIVING` | valid DATA, complete-image END, valid START(restart) | DATA는 `RECEIVING`, END copy 성공 시 `IMAGE_VERIFIED`, START erase 성공 시 `RECEIVING` | malformed DATA/END는 ERR 후 `RECEIVING`; CRC/flash failure는 `FAILED` |
+| `IMAGE_VERIFIED` | valid JUMP, valid START(restart) | JUMP는 application으로 전이; START erase 성공 시 `RECEIVING` | DATA/END는 `ERR(0x07)`, state 유지; jump validation failure는 `FAILED` |
+| `FAILED` | valid START(restart) | erase 성공 시 `RECEIVING` | DATA/END/JUMP는 `ERR(0x07)`, state 유지 |
 
 1. BBB는 firmware를 앞에서부터 최대 256 bytes로 나눕니다.
 2. 각 block에서 sequence를 다시 0부터 시작합니다.
@@ -224,7 +240,7 @@ Host와 target은 동일한 bitwise CRC32를 사용합니다.
 ## Flash 및 오류 처리 제약
 
 - F103 Flash driver는 write length가 4의 배수가 아니면 실패합니다. DATA staging write는 항상 256 bytes라 맞지만, active copy의 마지막 `copy_len`은 original firmware size에 좌우됩니다. BBB는 현재 `.bin` size의 4-byte alignment를 검사하지 않습니다.
-- Target은 START/DATA/END/JUMP의 엄격한 session state machine을 두지 않습니다. Unexpected command와 일부 잘못된 DLC는 명시적 ERR 없이 처리되거나 무시될 수 있습니다.
+- Target은 local `IDLE`/`RECEIVING`/`IMAGE_VERIFIED`/`FAILED` state와 exact DLC/sequence 검사를 적용합니다. 다만 wire에 session ID와 block ID가 없으므로 ACK 유실 뒤의 block 간 stale frame은 식별하지 못합니다.
 - Application validity 검사는 Reset Handler word의 Flash range만 봅니다. Initial SP의 SRAM 범위와 복사 후 active image CRC를 다시 확인하지 않습니다.
 - Flash metadata와 CRC는 update recovery용일 뿐 version, signature 또는 anti-rollback counter가 아닙니다.
 
