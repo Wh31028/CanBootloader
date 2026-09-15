@@ -1,6 +1,7 @@
 #include "ap.h"
 
 #include "FreeRTOS.h"
+#include "ecu_ready.h"
 #include "hw_def.h"
 #include "task.h"
 
@@ -9,6 +10,8 @@ volatile UBaseType_t g_app_task_stack_high_water_mark_words;
 // BKP Register에 Magic Number를 기록하고 소프트 리셋
 static void enterFotaMode(void)
 {
+  ecuReadySetNotReady();
+
   // PWR + BKP 클록 활성화
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_RCC_BKP_CLK_ENABLE();

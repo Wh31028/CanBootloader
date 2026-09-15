@@ -2,6 +2,7 @@
 
 #include "FreeRTOS.h"
 #include "ap.h"
+#include "ecu_ready.h"
 #include "task.h"
 
 #define APP_TASK_STACK_WORDS 256U
@@ -15,6 +16,8 @@ static StackType_t idle_task_stack[configMINIMAL_STACK_SIZE];
 static void AppTask(void *argument)
 {
   (void)argument;
+
+  ecuReadySetReady();
   apMain();
 
   freertosAssertFailed();

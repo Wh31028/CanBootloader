@@ -4,6 +4,7 @@
 #include "hw_def.h"
 
 #include "cli.h"
+#include "ecu_ready.h"
 #include "flash.h"
 #include "led.h"
 #include "uart.h"

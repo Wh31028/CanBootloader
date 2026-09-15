@@ -1,130 +1,114 @@
-# STM32F103RB FreeRTOS Application Milestone
+# STM32F103RB FreeRTOS Application 확장
 
-## Scope and design decision
+## 확장 목표
 
-The first milestone wraps the existing Custom FOTA application behavior in one
-FreeRTOS task. The Custom CAN protocol, bootloader, staging/copy flow, and Flash
-layout are unchanged.
+F103 Custom FOTA 기준선을 확립한 뒤, application을 FreeRTOS 기반 구조로 확장했습니다. 이 단계의 목표는 FOTA protocol과 Flash layout을 변경하지 않으면서 application 실행 구조를 task 기반으로 전환하는 것이었습니다.
 
-Startup is:
+Bootloader는 bare-metal 구조를 유지하고, FreeRTOS는 `boot_can_fw_f103` application에만 적용했습니다.
 
-1. `HAL_Init()` and the existing clock/peripheral initialization.
-2. `hwInit()` and `apInit()`.
-3. Static creation of `AppTask`.
-4. `vTaskStartScheduler()`.
-5. `AppTask` runs the existing `apMain()` LED and CAN polling loop.
+## Application 구조
 
-The CAN RX interrupt callback still writes received frames to the existing
-64-entry ring buffer. `AppTask` polls that buffer every 1 ms. CAN ID `0x200`
-with payload `DE AD` still writes `0xDEADBEEF` to BKP DR1/DR2 and resets into
-the Custom bootloader.
-
-## FreeRTOS source
-
-- FreeRTOS kernel: V10.3.1
-- STM32 package: STM32Cube_FW_F1_V1.8.6
-- Compiler port: `portable/GCC/ARM_CM3`
-- Included kernel sources: `tasks.c`, `list.c`, and `port.c`
-- Allocation: static only
-- Software timer service: disabled
-
-The source came from the locally installed STM32Cube F1 firmware repository;
-no external download was used.
-
-## SysTick and HAL tick
-
-Both the STM32 HAL and the FreeRTOS Cortex-M3 port use SysTick. The selected
-configuration shares one 1 kHz SysTick:
-
-- Before scheduler start, `SysTick_Handler()` only calls `HAL_IncTick()`.
-- After scheduler start, it calls `HAL_IncTick()` and then
-  `xPortSysTickHandler()`.
-- The Cortex-M3 port directly owns the SVC and PendSV handlers.
-
-This preserves `HAL_GetTick()`/`millis()` behavior without adding another HAL
-timer. `HAL_InitTick()` initially configures the HAL 1 kHz tick, and the
-FreeRTOS port configures SysTick to the same `configTICK_RATE_HZ` when the
-scheduler starts. The FOTA-entry wait uses `vTaskDelay()` in task context rather
-than busy-waiting in `HAL_Delay()`.
-
-## Task and RAM configuration
-
-| Item | Allocation | Rationale |
-| --- | ---: | --- |
-| AppTask stack | 256 words / 1,024 B | Conservative first-board-test value for the existing shallow polling loop and HAL calls |
-| Idle stack | 128 words / 512 B | FreeRTOS minimum stack, with no idle hook |
-| AppTask + Idle TCB | 120 B | Two 60-byte static TCBs in this build |
-| FreeRTOS heap | 0 B | `configSUPPORT_DYNAMIC_ALLOCATION=0`; no heap implementation is linked |
-| Linker C heap reserve | 512 B | Existing `_Min_Heap_Size`; not a FreeRTOS heap |
-| Linker MSP reserve | 1,024 B | Existing `_Min_Stack_Size` for startup and interrupts |
-
-`configCHECK_FOR_STACK_OVERFLOW=2` is enabled. The debugger-visible volatile
-symbol `g_app_task_stack_high_water_mark_words` records
-`uxTaskGetStackHighWaterMark(NULL)` at task entry and once per LED period. Its
-unit is 32-bit stack words. Hardware testing measured a minimum remaining value
-of 224 words (896 B), so the maximum observed AppTask stack use was 32 words
-(128 B). Keep the initial 256-word AppTask stack until future task features have
-also been measured.
-
-## Release build verification
-
-Commands:
-
-```powershell
-cmake --preset Release -S boot_can_fw_f103
-cmake --build boot_can_fw_f103/build/Release
+```mermaid
+flowchart TD
+    Reset[Application Reset] --> HAL[HAL / Clock / Peripheral 초기화]
+    HAL --> HW[Hardware Abstraction 초기화]
+    HW --> Create[Static AppTask 생성]
+    Create --> Scheduler[FreeRTOS Scheduler 시작]
+    Scheduler --> Ready[ECU_READY High]
+    Ready --> Loop[Application Main Loop]
+    Loop --> LED[상태 LED]
+    Loop --> CAN[CAN FOTA Request 처리]
 ```
 
-Tools:
+Application logic은 하나의 `AppTask`에서 실행합니다.
 
-- STM32CubeCLT 1.19.0
-- GNU Tools for STM32 13.3.1 (`13.3.rel1`)
-- CMake 3.28.1
-- Ninja 1.11.1
-- Build flags: Release, `-Os`, CLI/debug print disabled
+- Static task allocation만 사용
+- Application task와 Idle task의 stack/TCB를 정적으로 할당
+- Dynamic FreeRTOS heap 사용하지 않음
+- CAN RX interrupt는 기존 ring buffer에 frame 저장
+- `AppTask`가 1 ms 주기로 buffer polling
+- 기존 `0x200#DEAD` FOTA entry와 bootloader compatibility 유지
 
-Generated files: `boot_can_fw.elf`, `boot_can_fw.bin`, `boot_can_fw.hex`, and
-`boot_can_fw.map`.
+## FreeRTOS 구성
 
-| Measurement | Result |
+| 항목 | 구성 |
+| --- | --- |
+| Kernel | FreeRTOS V10.3.1 |
+| CPU port | GCC ARM_CM3 |
+| Application task | Static `AppTask`, 256 words |
+| Idle task | Static allocation |
+| Tick | 1 kHz SysTick |
+| Dynamic allocation | 비활성화 |
+| Software timer | 비활성화 |
+| Stack overflow check | `configCHECK_FOR_STACK_OVERFLOW=2` |
+
+STM32 HAL과 FreeRTOS가 하나의 1 kHz SysTick을 공유합니다. Scheduler 시작 전에는 HAL tick만 증가시키고, scheduler 시작 후에는 HAL tick과 FreeRTOS tick handler를 함께 호출합니다.
+
+이 설계는 별도 timer peripheral을 추가하지 않고 기존 `HAL_GetTick()` 및 application timing과 RTOS scheduler를 함께 유지합니다.
+
+## Memory 사용 변화
+
+FreeRTOS 적용 후 기록한 Release image 결과입니다.
+
+| 항목 | 결과 |
 | --- | ---: |
-| ELF file size | 33,872 B |
-| BIN image / linker FLASH use | 10,092 B / 57,336 B (17.60%) |
-| FLASH headroom | 47,244 B |
-| Linker RAM use | 5,304 B / 20,480 B (25.90%) |
+| Application BIN / Flash | 10,092 B / 57,336 B |
+| RAM | 5,304 B / 20,480 B |
+| Flash headroom | 47,244 B |
 | RAM headroom | 15,176 B |
-| `.isr_vector` | 268 B at `0x08004000` |
-| `.text` | 9,740 B |
-| `.rodata` | 56 B |
-| `.data` | 16 B |
-| `.bss` | 3,748 B |
-| `._user_heap_stack` | 1,540 B |
-| `Reset_Handler` | `0x080059F0` |
+| AppTask stack | 1,024 B |
+| Idle task stack | 512 B |
+| FreeRTOS heap | 0 B |
+| Vector table | `0x08004000` |
 
-The four-byte alignment gap after `.isr_vector` explains why the 10,092-byte
-linker/BIN FLASH use is four bytes larger than the sum reported by the standard
-`size` text and data columns.
+Pre-FreeRTOS 기준선보다 RAM 사용량은 1,888 B 증가했습니다. 증가분의 대부분은 application/idle task stack과 static TCB입니다.
 
-RAM increased by 1,888 B from the 3,416-byte baseline. This comprises the
-1,536 B of explicit task stacks, 120 B of TCBs, the 4-byte high-water diagnostic,
-and 228 B of scheduler/port state and alignment. No FreeRTOS heap array is
-present.
+Hardware 시험에서 `AppTask` stack high-water mark의 최소 잔여값은 224 words였습니다. 256-word stack 중 관측된 최대 사용량은 32 words(128 B)였습니다.
 
-The actual compile database uses `STM32F103xB`, STM32F1 HAL/CMSIS,
-`startup_stm32f103xb.s`, and `system_stm32f1xx.c`. It contains no F4 startup,
-system, HAL source, or include path.
+## ECU_READY 상태 신호
 
-## Hardware verification
+FOTA가 완료됐다는 ACK와 새 application이 실제로 scheduler까지 실행됐다는 사실은 서로 다릅니다. 이를 구분하기 위해 application 상태를 나타내는 `ECU_READY` level signal을 추가했습니다.
 
-All first-milestone checks passed on STM32F103RB:
+| STM32 상태 | `ECU_READY` |
+| --- | --- |
+| Reset / bootloader / FOTA 진행 | Low |
+| Scheduler 시작 전 | Low |
+| `AppTask` 진입 | High |
+| FOTA request 처리 직전 | Low |
 
-- FreeRTOS scheduler started; AppTask high-water mark was 224 words.
-- LED one-second period: PASS.
-- CAN ID `0x200`, payload `DE AD` Custom bootloader entry: PASS.
-- Normal Custom FOTA update: PASS.
-- CAN disconnect during transfer followed by reconnect and existing Application
-  boot: PASS.
+`ECU_READY`는 heartbeat나 firmware version protocol이 아니라, application task가 실행 상태에 도달했는지를 gateway가 관찰하기 위한 보조 신호입니다.
 
-The FreeRTOS Application first milestone is hardware-complete. The interrupted
-transfer result covers the existing Custom staging validation behavior; it does
-not add full A/B rollback protection for power loss during the final copy.
+## FOTA compatibility 유지
+
+FreeRTOS 도입 후에도 FOTA entry 경로는 유지됩니다.
+
+1. `AppTask`가 CAN ring buffer에서 ID `0x200`, payload `DE AD`를 확인합니다.
+2. `ECU_READY`를 Low로 전환합니다.
+3. BKP DR1/DR2에 `0xDEADBEEF`를 기록합니다.
+4. 100 ms 대기 후 `NVIC_SystemReset()`을 호출합니다.
+5. 기존 Custom bootloader가 동일한 magic을 읽고 FOTA mode에 진입합니다.
+
+Application execution model만 바뀌었으며 Custom packet layout, staging address, CRC와 copy flow는 변경하지 않았습니다.
+
+## 검증 결과
+
+- FreeRTOS scheduler와 static `AppTask` 시작 확인
+- Application LED 1초 주기 동작 확인
+- CAN `0x200#DEAD`를 통한 Custom bootloader 진입 확인
+- FreeRTOS application image의 Custom FOTA update 확인
+- 전송 중단 후 기존 application boot 확인
+- Reset/bootloader/FOTA 구간의 `ECU_READY` Low 확인
+- `AppTask` 진입 후 `ECU_READY` High 확인
+
+이 검증은 STM32F103RB hardware에서 수행한 개발 기록입니다. 자동화된 CAN trace나 test report는 repository에 포함되어 있지 않습니다.
+
+## 설계 결과
+
+이 확장을 통해 bootloader와 application의 책임을 분리하면서도 기존 Custom FOTA compatibility를 유지했습니다. Bootloader는 작은 bare-metal recovery component로 남고, application은 향후 여러 ECU 기능을 task 단위로 확장할 수 있는 기반을 갖게 됐습니다.
+
+## 관련 문서
+
+- [시스템 아키텍처](architecture.md)
+- [F103 Custom FOTA 기준선](f103-fota-baseline.md)
+- [Custom CAN Protocol](protocol.md)
+- [Memory Map](memory-map.md)
