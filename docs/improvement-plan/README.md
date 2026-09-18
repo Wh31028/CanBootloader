@@ -145,7 +145,7 @@ Build하지 않은 코드를 “build 가능”, hardware에서 실행하지 않
 | --- | --- | --- | --- | --- |
 | TW-00 | Baseline과 검증 계약 고정 | DONE | 없음 | 1차 2주 |
 | TW-01 | Target 입력·state·block 수신 안전성 | DONE | TW-00 | 1차 2주 |
-| TW-02 | Flash copy·boot validation 안전성 | TODO | TW-01 | 1차 2주 |
+| TW-02 | Flash copy·boot validation 안전성 | IN_PROGRESS | TW-01 | 1차 2주 |
 | TW-03 | BBB timeout·retry·CAN error 처리 | TODO | TW-02 | 1차 2주 |
 | TW-04 | ISO-TP build와 최소 baseline 수정 | TODO | TW-03 | 1차 2주 |
 | TW-05 | 통합 regression과 2주 결과 정리 | TODO | TW-04 | 1차 2주 |

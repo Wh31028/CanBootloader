@@ -47,37 +47,27 @@ void apInit(void)
   }
   else if (!checkFotaRequest())
   {
-    uint32_t *app_reset_vector = (uint32_t *)(FLASH_ADDR_START + 4);
-    if (*app_reset_vector >= FLASH_ADDR_START && *app_reset_vector < FLASH_ADDR_END)
+    if (bootVerifyFw() == true)
     {
 #ifdef _USE_HW_CLI
       cliPrintf("[BOOT] No FOTA request. Jumping to App...\n\r");
 #endif
       delay(50);
 
-      void (**jump_func)(void) = (void (**)(void))(FLASH_ADDR_START + 4);
-      __disable_irq();
-      SCB->VTOR = FLASH_ADDR_START;
-      __set_MSP(*(__IO uint32_t *)FLASH_ADDR_START);
-      (*jump_func)();
+      JumpToFw();
     }
     else
     {
 #ifdef _USE_HW_CLI
       cliPrintf("[BOOT] No valid App found. Checking for Auto-Recovery...\n\r");
 #endif
-      if (bootAutoRecover() == true)
+      if (bootAutoRecover() == true && bootVerifyFw() == true)
       {
 #ifdef _USE_HW_CLI
         cliPrintf("[BOOT] Auto-Recovery Success! Jumping to App...\n\r");
 #endif
         delay(50);
-        extern void bootJump(uint32_t sp, uint32_t pc);
-        uint32_t sp = *(__IO uint32_t *)FLASH_ADDR_START;
-        uint32_t pc = *(__IO uint32_t *)(FLASH_ADDR_START + 4);
-        __disable_irq();
-        SCB->VTOR = FLASH_ADDR_START;
-        bootJump(sp, pc);
+        JumpToFw();
       }
       else
       {

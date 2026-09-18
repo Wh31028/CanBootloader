@@ -86,7 +86,7 @@ flowchart LR
     VectorTail --> Vector[SP + Reset Vector<br/>첫 8 B 마지막 copy]
 ```
 
-첫 8 bytes를 마지막에 쓰는 이유는 복사 중 reset된 application을 valid로 오인해 jump하는 가능성을 줄이기 위해서입니다. 다음 boot에서 active Reset Handler가 invalid하면 staging metadata와 CRC를 검증하고 전체 copy를 다시 실행합니다.
+첫 8 bytes를 마지막에 쓰는 이유는 복사 중 reset된 application을 valid로 오인해 jump하는 가능성을 줄이기 위해서입니다. active copy의 마지막 partial word는 `0xFF` padding으로 기록하지만 CRC32는 original firmware size만 대상으로 계산합니다. copy 후에는 active 영역의 original-size CRC32를 metadata CRC와 다시 비교하고, Initial SP·Reset Handler의 Thumb bit·active application 범위를 검증합니다. 다음 boot에서 active image가 이 vector 검증을 통과하지 못하면 staging metadata, staging CRC, staging vector를 검증한 뒤 전체 copy를 다시 시도합니다.
 
 이 방식이 보장하지 않는 것:
 
@@ -94,19 +94,18 @@ flowchart LR
 - 두 개의 완전한 application slot 유지
 - Atomic slot swap 또는 version rollback
 - Staging corruption 시 이전 image 자동 복원
-- Active copy 완료 후 active 영역 전체 CRC 재검증
 
 따라서 code/log의 “Dual-Bank” 표현은 실제 STM32 dual-bank/A/B 구조가 아니라 staging 후 copy를 뜻하는 표현으로 해석해야 합니다.
 
 ## Firmware size와 alignment 제약
 
 - Custom host가 보내야 할 F103 `.bin`은 valid vector table을 포함하고 57,336 B 이하여야 합니다.
-- Flash driver의 `flashWrite()`는 length가 4의 배수가 아니면 실패합니다.
-- Staging DATA write는 256-byte 고정이라 정렬되지만 active copy의 마지막 write는 original size에 좌우됩니다.
+- Flash driver의 `flashWrite()`는 length가 4의 배수가 아니면 실패합니다. active copy helper는 마지막 1–3 byte를 `0xFF`로 padding한 4-byte write로 처리하며, CRC32는 padding을 제외한 original size로 계산합니다.
+- Staging DATA write는 256-byte 고정이라 정렬되지만 active copy의 마지막 write는 original size에 좌우되므로 padding helper를 사용합니다.
 - Current BBB host는 57,336 B 상한과 4-byte alignment를 실행 전에 검증하지 않습니다.
 - Linker가 만든 현재 application binary는 통상 word-aligned이지만, 임의 파일을 보내도 안전하다는 뜻은 아닙니다.
 
-Size가 0이거나 상한을 초과할 때 bootloader가 START를 명시적으로 reject하지 않으므로, 현재 memory safety는 정상적인 F103 application image가 입력된다는 전제에 의존합니다.
+START는 size 0 또는 상한 초과를 erase 전에 reject합니다. END의 CRC 일치만으로 실행 가능 image로 보지 않고, Initial SP가 F103RB SRAM(`0x20000000`–`0x20005000`, end-inclusive MSP), Reset Handler의 Thumb bit, 그리고 Thumb bit를 제거한 handler address가 active application range `0x08004000`–`0x08011FF7`에 있는지를 검사합니다.
 
 ## F103 ISO-TP 비교 map
 
