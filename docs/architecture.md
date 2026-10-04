@@ -132,7 +132,7 @@ flowchart LR
     Vector --> Run[새 Application 실행]
 ```
 
-Active copy는 application의 offset 256 이후를 먼저 복사하고, 첫 block의 offset 8 이후를 복사한 뒤 Initial SP와 Reset Vector 8 bytes를 마지막에 기록합니다.
+Active copy는 application의 offset 256 이후를 먼저 복사하고, 첫 block의 offset 8 이후를 복사한 뒤 Initial SP와 Reset Vector 8 bytes를 마지막에 기록합니다. 마지막 partial word는 `0xFF` padding으로 write하지만 original firmware size만 CRC32에 포함합니다. vector를 마지막에 기록한 뒤에는 active original-size CRC32와 SP/Thumb/Reset Handler range를 다시 검증합니다.
 
 Copy 도중 reset되어 active Reset Handler가 유효하지 않으면 bootloader가 staging metadata와 CRC를 확인하고 전체 copy를 다시 시도합니다. 이 방식은 중단 복구 가능성을 높이지만, 별도 physical bank를 전환하는 true A/B update는 아닙니다.
 

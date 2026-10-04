@@ -5,6 +5,16 @@
 
 #define FLASH_PAGE_SIZE 1024
 
+static bool flashRangeIsValid(uint32_t addr, uint32_t length)
+{
+  if (addr < FLASH_ADDR_START || addr > FLASH_ADDR_END)
+  {
+    return false;
+  }
+
+  return length <= (FLASH_ADDR_END - addr);
+}
+
 #ifdef _USE_HW_CLI
 static void cliFlash(cli_args_t *args);
 #endif
@@ -27,7 +37,7 @@ bool flashErase(uint32_t addr, uint32_t length)
   if (length == 0) return true;
 
   // --- [보안/안전 장치] 부트로더 및 허용되지 않은 영역 지우기 방지 ---
-  if (addr < FLASH_ADDR_START || (addr + length) > FLASH_ADDR_END)
+  if (flashRangeIsValid(addr, length) == false)
   {
     return false;
   }
@@ -66,7 +76,7 @@ bool flashWrite(uint32_t addr, uint8_t *p_data, uint32_t length)
   }
 
   // --- [보안/안전 장치] 부트로더 및 허용되지 않은 영역 쓰기 방지 ---
-  if (addr < FLASH_ADDR_START || (addr + length) > FLASH_ADDR_END)
+  if (flashRangeIsValid(addr, length) == false)
   {
     return false;
   }
@@ -103,6 +113,11 @@ bool flashRead(uint32_t addr, uint8_t *p_data, uint32_t length)
 {
   bool ret        = true;
   uint8_t *p_byte = (uint8_t *)addr;
+
+  if (p_data == NULL || flashRangeIsValid(addr, length) == false)
+  {
+    return false;
+  }
 
   for (int i = 0; i < length; i++)
   {

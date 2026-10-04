@@ -41,7 +41,6 @@ void JumpToFw(void);
 
 uint32_t bootGetLastRxTime(void);
 
-// 내부 함수이지만 혹시 외부 참조 필요시를 대비
-bool bootCopyFw(uint32_t fw_size);
+bool bootCopyFw(uint32_t fw_size, uint32_t expected_crc);
 
 #endif

@@ -7,6 +7,8 @@
 // 펌웨어 데이터 버퍼 (256바이트 페이지 단위)
 #define BOOT_BUF_SIZE 256
 #define BOOT_FRAME_PAYLOAD_SIZE 7
+#define STM32F103RB_SRAM_START 0x20000000UL
+#define STM32F103RB_SRAM_END   0x20005000UL
 static uint8_t boot_buf[BOOT_BUF_SIZE];
 static uint32_t fw_addr = FLASH_ADDR_DOWN;  // 다운로드 구역 주소
 static uint32_t original_fw_size     = 0; // 원본 파일 크기 저장용 (CRC 계산용)
@@ -34,10 +36,12 @@ static void bootProcessData(can_msg_t *msg, uint8_t seq);
 static void bootProcessEnd(can_msg_t *msg);
 static void bootProcessJump(can_msg_t *msg);
 static void bootResetReceiveContext(void);
+static bool bootVerifyImageAt(uint32_t image_addr);
+static bool bootWritePadded(uint32_t addr, const uint8_t *data, uint32_t length);
 bool bootVerifyFw(void);
 void JumpToFw(void);
 static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length);
-bool bootCopyFw(uint32_t fw_size);
+bool bootCopyFw(uint32_t fw_size, uint32_t expected_crc);
 
 void bootInit(void)
 {
@@ -232,12 +236,24 @@ static void bootProcessEnd(can_msg_t *msg)
 
   if (calculated_crc == received_crc)
   {
+    if (bootVerifyImageAt(FLASH_ADDR_DOWN) == false)
+    {
+      boot_state = BOOT_STATE_FAILED;
+      SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_JUMP);
+      return;
+    }
+
     // 검증 성공 -> 1. 메타 헤더(Size, CRC) 기록
-    flashWrite(FLASH_ADDR_META_SIZE, (uint8_t *)&original_fw_size, 4);
-    flashWrite(FLASH_ADDR_META_CRC, (uint8_t *)&received_crc, 4);
+    if (flashWrite(FLASH_ADDR_META_SIZE, (uint8_t *)&original_fw_size, 4) == false ||
+        flashWrite(FLASH_ADDR_META_CRC, (uint8_t *)&received_crc, 4) == false)
+    {
+      boot_state = BOOT_STATE_FAILED;
+      SendResponse(CMD_TX_ERR, BOOT_ERR_FLASH_WRITE);
+      return;
+    }
 
     // 2. 실행 구역으로 복사
-    bool copy_success = bootCopyFw(original_fw_size);
+    bool copy_success = bootCopyFw(original_fw_size, received_crc);
 
     if (copy_success)
     {
@@ -302,16 +318,24 @@ static void bootResetReceiveContext(void)
 
 bool bootVerifyFw(void)
 {
-  uint32_t *jump_addr = (uint32_t *)(FLASH_ADDR_START + 4);
+  return bootVerifyImageAt(FLASH_ADDR_START);
+}
 
-  if ((*jump_addr) >= FLASH_ADDR_START && (*jump_addr) < FLASH_ADDR_END)
-  {
-    return true;
-  }
-  else
+static bool bootVerifyImageAt(uint32_t image_addr)
+{
+  uint32_t initial_sp = *(uint32_t *)image_addr;
+  uint32_t reset_handler = *(uint32_t *)(image_addr + 4);
+  uint32_t reset_addr = reset_handler & ~1UL;
+  uint32_t active_image_end = FLASH_ADDR_START + FLASH_ADDR_FW_MAX_LEN;
+
+  if (initial_sp < STM32F103RB_SRAM_START || initial_sp > STM32F103RB_SRAM_END ||
+      (initial_sp & 0x3UL) != 0 || (reset_handler & 1UL) == 0 ||
+      reset_addr < FLASH_ADDR_START || reset_addr >= active_image_end)
   {
     return false;
   }
+
+  return true;
 }
 
 // 컴파일러의 스택 메모리 해제(pop) 오작동을 원천 차단하기 위해 naked(어셈블리) 함수로 점프를 구현합니다.
@@ -400,17 +424,45 @@ static uint32_t calculate_crc32(uint32_t start_addr, uint32_t length)
   return ~crc;
 }
 
-bool bootCopyFw(uint32_t fw_size)
+static bool bootWritePadded(uint32_t addr, const uint8_t *data, uint32_t length)
 {
-  bool copy_success = true;
+  uint8_t padded_word[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+  uint32_t aligned_length = length & ~0x3UL;
+
+  if (aligned_length > 0 && flashWrite(addr, (uint8_t *)data, aligned_length) == false)
+  {
+    return false;
+  }
+
+  if (aligned_length == length)
+  {
+    return true;
+  }
+
+  memcpy(padded_word, data + aligned_length, length - aligned_length);
+  return flashWrite(addr + aligned_length, padded_word, sizeof(padded_word));
+}
+
+bool bootCopyFw(uint32_t fw_size, uint32_t expected_crc)
+{
+  bool copy_success = false;
+
+  if (fw_size == 0 || fw_size > FLASH_ADDR_FW_MAX_LEN)
+  {
+    return false;
+  }
+
   if (flashErase(FLASH_ADDR_START, fw_size) == true)
   {
+    copy_success = true;
+
     // 안전장치: 전원이 끊겼을 때를 대비해, 부팅 여부를 결정하는 '첫 번째 블록'을 가장 마지막에 복사합니다.
     uint32_t offset = BOOT_BUF_SIZE;
     while (offset < fw_size)
     {
       uint32_t copy_len = (fw_size - offset > BOOT_BUF_SIZE) ? BOOT_BUF_SIZE : (fw_size - offset);
-      if (flashWrite(FLASH_ADDR_START + offset, (uint8_t *)(FLASH_ADDR_DOWN + offset), copy_len) != true)
+      if (bootWritePadded(FLASH_ADDR_START + offset,
+                          (const uint8_t *)(FLASH_ADDR_DOWN + offset), copy_len) == false)
       {
         copy_success = false;
         break;
@@ -426,7 +478,8 @@ bool bootCopyFw(uint32_t fw_size)
       // 1. 오프셋 8부터 나머지 벡터 테이블(예: 8 ~ 255)을 먼저 복사
       if (first_len > 8)
       {
-        if (flashWrite(FLASH_ADDR_START + 8, ((uint8_t *)FLASH_ADDR_DOWN) + 8, first_len - 8) != true)
+        if (bootWritePadded(FLASH_ADDR_START + 8,
+                            ((const uint8_t *)FLASH_ADDR_DOWN) + 8, first_len - 8) == false)
         {
           copy_success = false;
         }
@@ -441,6 +494,12 @@ bool bootCopyFw(uint32_t fw_size)
           copy_success = false;
         }
       }
+    }
+
+    if (copy_success &&
+        (calculate_crc32(FLASH_ADDR_START, fw_size) != expected_crc || bootVerifyFw() == false))
+    {
+      copy_success = false;
     }
   }
   else
@@ -469,7 +528,8 @@ bool bootAutoRecover(void)
   if (calc_crc == meta_crc)
   {
     // 다운로드 구역이 온전하므로 다시 복사를 시도합니다.
-    if (bootCopyFw(meta_size) == true)
+    if (bootVerifyImageAt(FLASH_ADDR_DOWN) == true &&
+        bootCopyFw(meta_size, meta_crc) == true)
     {
       return true; // 복구 성공
     }

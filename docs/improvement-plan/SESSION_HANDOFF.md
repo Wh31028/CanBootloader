@@ -4,8 +4,9 @@
 
 - 계획 작성일: 2026-09-07
 - 마지막 완료 Task: `TW-01 — Target 입력·state·block 수신 안전성`
+- 마지막 완료 Task: `TW-02 — Flash copy·metadata·boot validation 안전성`
 - 진행 중 Task: 없음
-- 다음 Task: `TW-02 — Flash copy·metadata·boot validation 안전성`
+- 다음 Task: `TW-03 — BBB timeout·retry·CAN error 처리` (TW-02의 남은 negative hardware 시험은 evidence backlog로 유지; TW-03은 아직 시작하지 않음)
 - CanBootloader 검증 기준: `fix/tw-01-target-input-state` / `a4cf05fff92b072c1bf87054b76e8ec6cd41e3da`
 - yocto_capston 계획 기준: `main` / `6c393e8`
 - Task 시작 시 CanBootloader: `main` / `fb5e26663f45b2bbf4bc8d4dda83f5d4eaee96e1`, clean
@@ -16,6 +17,20 @@
 - 필수 장비 범위: BBB, STM32F103RB, 현재 CAN transceiver/배선, 개발 PC
 - 범위 제외: external analyzer, oscilloscope, relay power switch, 전문 CAN fault injector
 - 마지막 면접 노트: `interview/TW-01.md` (DRAFT, 사용자 rehearsal 없음)
+
+## TW-02 현재 결과
+
+- 2026-10-04 현재 관찰: CanBootloader `tw-02-flash-boot-validation` / `c286879`, 사용자 소유 `.clangd` 수정 및 untracked `boot_can_isotp/` 보존; yocto_capston `main` / `379f882`, clean. 이전 handoff의 시작-branch 정보와 현재 상태를 혼동하지 않는다.
+- 작업 branch: 두 repository 모두 `tw-02-flash-boot-validation`; CanBootloader `f9e75ed`에서 시작, yocto_capston `6c393e8`에서 시작, 시작 시 모두 clean
+- source 수정: `flash.c` subtraction-form range check와 `flashRead()` guard; `boot_can.c` metadata write result 전파, staged/active vector validation, tail `0xFF` padding, active CRC readback; `ap.c` boot decision/recovery/JUMP의 공통 validator 사용
+- BBB sender/Yocto source: Custom CAN ID, command, DLC, sequence, payload layout을 변경하지 않아 호환성 영향 없음. Yocto source 사본은 F4 source-of-truth 결정 전이라 수정하지 않음.
+- build: 2026-10-04 재실행 Custom bootloader PASS (Flash 13,792 B / 16 KiB, RAM 3,184 B / 20 KiB); F103 application PASS (Flash 10,156 B / 57,336 B, RAM 5,304 B / 20 KiB)
+- CTest: NOT RUN (두 build directory에서 실제 실행했으나 모두 `No tests were found!!!`); target HAL failure, padding boundary, corrupted active CRC, invalid SP/Thumb/staging Reset Handler 및 reset recovery hardware cases는 BBB/target 연결이 없어 NOT RUN
+- BBB access: `debian@192.168.7.2` SSH preflight는 10초 connection timeout으로 FAIL. PC에 `192.168.7.x` neighbour/ARP가 없었다. SSH가 복구되면 별도 장비 없이 BBB `can0` preflight, Linux flasher build, `candump -L` trace, FOTA 실행을 자동화할 수 있으나 STM32 flash/reset은 기존 ST-LINK/배선 상태가 필요하다.
+- hardware normal FOTA: PASS. ST-LINK V2로 NUCLEO-F103RB bootloader `0x08000000`(13.47 KiB)와 application `0x08004000`(9.92 KiB)을 write/verify했다. BBB `can0` 500 kbit/s `UP`/`LOWER_UP`/`ERROR-ACTIVE` 확인 후 web dashboard Custom FOTA를 실행했다. dashboard가 시작 시 CAN을 재설정하므로 `candump -L` 재시작 loop로 trace를 수집했다. `0x100#80817459B2` END → `0x101#0000` ACK → `0x100#C0` JUMP → `0x101#0000` ACK를 확인했고, application LD2가 1초 주기로 toggle됐다.
+- remaining evidence: non-4-byte tail padding, invalid SP/Thumb/staging Reset Handler, active corruption, checkpoint reset/recovery는 NOT RUN이다. physical bit/CRC fault와 정밀 on-wire retransmission 계측은 범위 밖이다.
+- 문서: `reports/TW-02-flash-copy-boot-validation.md`, `interview/TW-02.md`, `QUESTION_BANK.md`, `memory-map.md`, `architecture.md` 갱신
+- 범위 제외: physical bit/frame-CRC fault, hardware automatic retransmission의 정확한 on-wire 횟수, oscilloscope signal integrity, relay 기반 자동 power-cut
 
 ## 다음 창에서 읽을 문서
 
@@ -31,7 +46,7 @@
 
 TW-01 source/build 단계는 완료했다. target은 `IDLE`/`RECEIVING`/`IMAGE_VERIFIED`/`FAILED` local state를 사용하며, START의 exact DLC/size, DATA의 block별 exact sequence/DLC, END의 complete-image, JUMP의 verified-state를 검증한다. 새 error code는 기존 `ERR` header의 하위 6 bits만 사용하므로 BBB sender의 wire format과 generic error print는 호환된다. Yocto 패키지 사본도 START/END DLC 5, JUMP DLC 1, DATA 마지막-frame short DLC 형식을 사용하지만 source drift 동기화는 F4 이전에 결정하지 않는다.
 
-TW-01은 `DONE`이다. 다음 창은 TW-02만 수행하며 flash copy, metadata, application boot validation을 다룬다. ISO-TP type include-order 수정은 TW-04 범위입니다.
+TW-01과 TW-02는 `DONE`이다. TW-02 normal Custom FOTA는 실제 BBB/STM32F103RB hardware에서 PASS했으며, 실행하지 않은 negative hardware 시험은 report에 `NOT RUN`으로 남겼다. 다음 창은 TW-03만 수행하며, ISO-TP type include-order 수정은 TW-04 범위다. physical bit/CRC fault와 정밀 on-wire retransmission 계측은 범위 밖이다.
 
 ## 현재 주의 사항
 
