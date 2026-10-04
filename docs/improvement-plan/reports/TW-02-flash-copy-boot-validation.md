@@ -2,10 +2,10 @@
 
 ## 한눈에 보기
 
-- 상태: `IN_PROGRESS`
+- 상태: `DONE`
 - 코드와 build: 완료
-- BBB + STM32F103RB 실장 시험: `NOT RUN`
-- 이유: 이번 세션에서는 board에 직접 연결해 시험할 수 없었다. 실행하지 않은 시험을 통과했다고 기록하지 않는다.
+- BBB + STM32F103RB 정상 Custom FOTA 실장 시험: `PASS`
+- 근거: NUCLEO-F103RB에 bootloader와 application을 SWD write/verify한 뒤, BBB web dashboard에서 Custom FOTA를 실행했다. `candump -L` trace에 END ACK와 JUMP ACK가 남았고, application LD2가 1초 주기로 다시 toggle되는 것을 관찰했다.
 
 ## 이 작업에서 막으려는 문제
 
@@ -64,20 +64,26 @@ Custom CAN protocol의 CAN ID, command, sequence, DLC, payload layout은 바꾸�
 
 | 항목 | 결과 | 확인 내용 |
 | --- | --- | --- |
-| Custom F103 bootloader build | **PASS** | Flash 10,212 B / 16 KiB, RAM 3,184 B / 20 KiB |
-| F103 application build | **PASS** | Flash 10,180 B / 57,336 B, RAM 5,304 B / 20 KiB |
+| Custom F103 bootloader build | **PASS** | 2026-10-04 `cmake --build boot_can_custom_f103/build/Debug`: Flash 13,792 B / 16 KiB, RAM 3,184 B / 20 KiB |
+| F103 application build | **PASS** | 2026-10-04 `cmake --build boot_can_fw_f103/build/Release`: Flash 10,156 B / 57,336 B, RAM 5,304 B / 20 KiB |
 | application vector 확인 | **PASS** | MSP `0x20005000`, Reset Handler `0x08005A35`; SRAM/Thumb/active-range 조건 충족 |
 | `git diff --check` | **PASS** | whitespace error 없음 |
-| CTest | **NOT RUN** | command는 실행했지만 repository에 test가 없음 (`No tests were found!!!`) |
-| BBB + STM32F103RB FOTA 시험 | **NOT RUN** | 이번 세션에 board 연결 경로가 없음 |
+| CTest | **NOT RUN** | 두 build directory에서 실제 실행했지만 모두 `No tests were found!!!` (test target 없음) |
+| BBB SSH preflight | **FAIL** | `ssh -o BatchMode=yes -o ConnectTimeout=10 debian@192.168.7.2 ...`가 connection timeout; BBB에 command를 실행하지 못함 |
+| BBB `can0` preflight | **PASS** | 500 kbit/s, `UP`/`LOWER_UP`, `ERROR-ACTIVE`, TX/RX error counter 0으로 확인. dashboard가 시작 시 interface를 down/up 하므로 trace는 재시작 loop로 수집함 |
+| STM32 programming | **PASS** | ST-LINK V2, NUCLEO-F103RB에서 bootloader `0x08000000` 13.47 KiB 및 application `0x08004000` 9.92 KiB를 각각 write/verify 성공 |
+| BBB + STM32F103RB 정상 Custom FOTA | **PASS** | trace의 `0x100#80817459B2` END, `0x101#0000` END ACK, `0x100#C0` JUMP, `0x101#0000` JUMP ACK; 이후 application LD2가 1초 주기로 toggle |
+| non-4-byte tail padding 실장 시험 | **NOT RUN** | valid vector를 유지한 1~3 byte tail image를 이번 session에서 전송하지 않음 |
+| invalid SP/Thumb/staging Reset Handler 실장 시험 | **NOT RUN** | 기존 active application 보존 여부를 포함한 negative image 시험을 이번 session에서 전송하지 않음 |
+| active corruption/checkpoint reset recovery | **NOT RUN** | current debug/programming 수단으로 안전한 재현 절차를 이번 session에서 실행하지 않음 |
 
 기존 `FLASH_PAGE_SIZE` redefinition warning은 남아 있다. 이 Task에서 새로 발생한 warning은 아니며 build/link는 성공했다.
 
-## 다음 hardware 시험
+## 남은 hardware 시험
 
 BBB, STM32F103RB, 현재 CAN transceiver/배선, 개발 PC만 사용한다.
 
-1. sizes `1`, `3`, `4`, `255`, `256`, `257`, `57,336`을 전송한다. 8 byte보다 작은 image는 valid vector를 가질 수 없으므로 END에서 vector error가 나는 것이 정상이다.
+1. valid vector를 유지한 1~3 byte tail image와 최대 크기 image를 전송해 padding/write 경계를 확인한다.
 2. SRAM 밖 SP, Thumb bit가 0인 Reset Handler, staging을 가리키는 Reset Handler를 보낸다. active erase 전에 error가 나고 기존 application이 보존되는지 확인한다.
 3. active copy 뒤 1 byte corruption과 checkpoint reset을 현재 debug/programming 수단으로 시험한다. CRC failure와 recovery 결과를 trace로 남긴다.
 
