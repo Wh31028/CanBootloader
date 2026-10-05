@@ -6,10 +6,17 @@
 
 1. Codex에서 `C:/repos/CanBootloader-paper`를 작업 폴더로 연다.
 2. [인수인계](SESSION_HANDOFF.md)의 다음 대화 시작 prompt를 붙여 넣는다.
-3. P00은 완료했다. 다음 대화에서는 `P01`만 수행한다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
+3. P00과 P01은 완료했다. 다음 대화에서는 `P02`만 수행한다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
 4. 다음 대화도 같은 폴더에서 열고, handoff에 지정된 Task만 수행한다.
 
-현재 단계는 **P00 DONE (2026-10-05)**이다. F407 두 bootloader와 application build·정적 주소/크기 점검, 원고 골격을 완료했다. 다음 대화는 **P01만** 수행한다. hardware smoke/본 실험/제출은 미실행이다. 상세 근거는 [P00 보고](reports/P00.md)를 따른다.
+현재 단계는 **P01 DONE (2026-10-05)**이다. F407 sender의 monotonic 시간 경계·frame 계수·응답/FC 검증을 host 수준에서 통일했다. 다음 대화는 **P02만** 수행한다. hardware smoke/본 실험/제출은 미실행이다. 상세 근거는 [P01 보고](reports/P01.md)를 따른다.
+
+## 문서 작성 원칙
+
+- 쉬운 우리말을 먼저 쓴다.
+- CAN, ISO-TP, ACK처럼 널리 쓰는 기술 용어는 처음 나올 때 짧은 뜻을 함께 쓴다.
+- 약어만 나열하지 않고, 무엇을 뜻하고 왜 필요한지 한 문장으로 설명한다.
+- 실제로 하지 않은 시험은 “실행하지 않음”이라고 분명히 쓴다.
 
 ## 브랜치와 원본 보존
 
@@ -58,7 +65,7 @@ TW-03 전체는 보류하지만 실험 sender의 bounded retry/deadline, malform
 | ID | 작업 | 목표 시점 | 선행 | 현재 상태 |
 | --- | --- | --- | --- | --- |
 | P00 | 실험 baseline·build·제출 조건 확인, 글 골격 | 10/4~5 | 없음 | DONE |
-| P01 | 시간·frame 집계 기준 통일 | 10/5~6 | P00 | TODO |
+| P01 | 시간·frame 집계 기준 통일 | 10/5~6 | P00 | DONE |
 | P02 | loss/retry/실패 기록·runner 정리 | 10/6~7 | P01 | TODO |
 | P03 | hardware smoke와 측정 검증 | 10/7~8 | P02 | TODO |
 | P04 | 주 MCU의 240회 핵심 실험 | 10/8~10 | P03 | TODO |
@@ -96,12 +103,12 @@ P00에서 abstract/manuscript 골격을 작성했다. hardware가 일시적으�
 
 다음은 분기 기준 source/기존 자료를 읽어 발견한 사항이며 재실험 결과가 아니다.
 
-- Custom은 END ACK 뒤, ISO-TP는 JUMP 전 0.5초 대기까지 포함해 시간을 확정한다.
-- Custom TX에는 software drop 시도가 포함되지만 ISO-TP CF TX에는 포함되지 않는다.
-- ISO-TP 일부 START/END 실패 경로는 CSV를 기록하지 않는다.
+- P01에서 두 sender 모두 END ACK 직후까지의 monotonic transaction 시간으로 통일했다. JUMP 전 0.5초 대기는 제외한다.
+- P01에서 Custom과 ISO-TP 모두 software drop을 포함한 send attempt와 socket acceptance를 분리했다.
+- ISO-TP START/END 실패는 P01에서 결과 상태로 기록하도록 보완했으며, socket 초기화·입력 파일 실패 등 모든 종료 상태와 runner 기록은 P02에서 정리한다.
 - loss 대상은 Custom DATA와 ISO-TP CF로 다르며, 재전송/마지막 frame 정책도 확인해야 한다.
-- `BS=256` 표기는 256-byte application chunk와 FC의 CF-count 필드를 구분해 수정해야 한다.
-- F407 sender는 FC의 BS/STmin을 가정한다. 실제 수신 FC 준수 여부를 확인한다.
+- 256-byte application chunk와 FC의 BS=8 CF-count는 P01에서 구분했다.
+- F407 ISO-TP sender는 P01에서 FC BS=8/STmin=0을 검증하고 준수한다. hardware trace 대조는 P03에서 수행한다.
 - P00에서 F103 ISO-TP의 16 KiB FLASH overflow 17,224 bytes를 재현했다. Custom/app만 PASS이며 보충 비교는 미확보다.
 - P00에서 두 ISO-TP submodule을 gitlink 5593428d95af10dde1e565cebcda16089fc74857로 초기화했다. 최신 upstream으로 임의 갱신하지 않는다.
 - 기존 CSV F407 960행/F103 240행은 모두 OK지만 모든 실패를 포함한 전체 시도였다는 근거는 부족하다.
@@ -112,7 +119,7 @@ P00에서 생성한 원고: [요약문](../paper/abstract.md), [전문](../paper
 
 기존 계획 문서: 이 README, [Task 상세](tasks.md), [새 대화 안내](codex-session-guide.md), [handoff](SESSION_HANDOFF.md), [보고 템플릿](reports/TEMPLATE.md).
 
-아래 중 P00 보고·원고 골격·build archive는 생성됐다. P01~P08 보고와 실제 FOTA 실험·분석 자료는 아직 없다.
+아래 중 P00 보고·원고 골격·build archive와 P01 보고·host 검증 evidence는 생성됐다. 실제 FOTA 실험·분석 자료는 아직 없다.
 
 - `docs/paper-plan/reports/P00.md` ~ `P08.md`: 작업 근거·검증.
 - `docs/paper/abstract.md`, `docs/paper/manuscript.md`: 저자 검토용 원고.
@@ -129,7 +136,7 @@ main의 TW-03을 원래 C sender/target 코드 기준으로 재개한다. Python
 ## P00에서 추가 확인한 후속 gate
 
 - F407 ISO-TP의 stdint.h 누락만 수정했다. build binary 33,472/42,140/36,832 bytes(Custom/ISO/app)이며 hardware 동작 PASS는 아니다.
-- 고정 dependency는 FC BS=8/STmin=0/response timeout=100 ms다. sender의 BS=0 가정은 P01에서 수정한다.
+- 고정 dependency는 FC BS=8/STmin=0/response timeout=100 ms다. P01 sender는 BS=8/STmin=0 FC를 검증하고 8 CF마다 대기한다.
 - F407 Custom -Os와 ISO 사용자 코드 -O0 차이는 P03 비교 설정 고정 전에 처리한다.
 - F407 source end=0x08080000과 max/app linker=960 KiB 불일치가 있다. P00는 정상 64 KiB [0x08010000,0x08020000) 및 sector 4 적합성만 확인했다.
 - 현재 네 sender의 CSV 출력 경로는 모두 can-fota-BBB/fota_results.csv다. 보관 CSV와 생성 코드의 동일성을 단정하지 않는다.

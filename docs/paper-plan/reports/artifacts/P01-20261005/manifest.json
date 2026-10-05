@@ -1,0 +1,23 @@
+{
+  "task": "P01",
+  "date": "2026-10-05",
+  "branch": "paper/ksma-2026",
+  "head_at_start": "e5f20487f4e92332375e0590879e62ceb57cd035",
+  "submodules": {
+    "boot_can_isotp/App/ap/boot_can/iso15765": "5593428d95af10dde1e565cebcda16089fc74857",
+    "boot_can_isotp_f103/App/ap/boot_can/iso15765": "5593428d95af10dde1e565cebcda16089fc74857"
+  },
+  "changed_source_sha256": {
+    "can-fota-BBB/fota_p01.py": "9fad09610d747665285564db13fca9dc2c08d9fc4dc0341d3cced4cd6d87f8d0",
+    "can-fota-BBB/loss_test_custom.py": "03f2b2532aec276046bbc1983e60e6dd268e240d2d45db5a9f2d0104e3737201",
+    "can-fota-BBB/loss_test_isotp_raw.py": "01765ffee16e386c21bfe772154c7c8a1042f4306d0ca982a363fb6c6c030f6c"
+  },
+  "verification": {
+    "python_compile": "PASS",
+    "mock_socketcan": "PASS",
+    "git_diff_check": "PASS",
+    "hardware": "NOT RUN",
+    "fota_run": "NOT RUN",
+    "csv_created": false
+  }
+}

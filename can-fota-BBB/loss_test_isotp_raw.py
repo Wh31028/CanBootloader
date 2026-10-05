@@ -8,6 +8,7 @@ import socket
 import os
 import csv
 from datetime import datetime
+from fota_p01 import Metrics, overhead_pct, standard_data_id
 
 # 설정
 CAN_INTERFACE = 'can0'
@@ -23,9 +24,6 @@ CMD_FW_DATA       = 0x20
 CMD_FW_END        = 0x30
 CMD_FW_JUMP_TO_FW = 0x40
 
-total_frames_sent = 0
-total_frames_received = 0
-retransmitted_frames = 0
 total_transmission_time = 0.0
 
 CAN_ID_FOTA_REQUEST = 0x200  # App FW에게 FOTA 진입 요청
@@ -38,7 +36,9 @@ CSV_HEADERS = [
     "timestamp", "protocol", "loss_rate_pct", "trial",
     "fw_size_bytes", "total_time_sec",
     "tx_frames", "rx_frames", "total_frames",
-    "retransmit_frames", "overhead_pct", "status"
+    "retransmit_frames", "overhead_pct", "status",
+    "send_attempts", "software_drops", "socket_send_success", "send_errors",
+    "protocol_rx", "retransmit_attempts", "retransmit_send_success", "invalid_protocol_rx"
 ]
 
 # argparse는 __main__에서 파싱하지만, 글로벌 초기값 설정
@@ -47,9 +47,10 @@ TARGET_SIZE_KB = 64
 TRIAL_NUM      = 1
 PROTOCOL_NAME  = "RAW_ISO-TP"
 
-def save_result(fw_size, total_time, tx, rx, retx, status="OK"):
+def save_result(fw_size, total_time, metrics, status="OK"):
     """결과를 CSV와 텍스트 로그 파일에 저장한다."""
-    overhead_pct = (retx / tx * 100) if tx > 0 else 0.0
+    tx, rx, retx = metrics.send_attempts, metrics.protocol_rx, metrics.retransmit_attempts
+    overhead = overhead_pct(metrics)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     row = {
@@ -63,8 +64,16 @@ def save_result(fw_size, total_time, tx, rx, retx, status="OK"):
         "rx_frames":         rx,
         "total_frames":      tx + rx,
         "retransmit_frames": retx,
-        "overhead_pct":      f"{overhead_pct:.2f}",
+        "overhead_pct":      f"{overhead:.2f}",
         "status":            status,
+        "send_attempts": metrics.send_attempts,
+        "software_drops": metrics.software_drops,
+        "socket_send_success": metrics.socket_send_success,
+        "send_errors": metrics.send_errors,
+        "protocol_rx": metrics.protocol_rx,
+        "retransmit_attempts": metrics.retransmit_attempts,
+        "retransmit_send_success": metrics.retransmit_send_success,
+        "invalid_protocol_rx": metrics.invalid_protocol_rx,
     }
 
     file_exists = os.path.exists(CSV_PATH)
@@ -84,7 +93,10 @@ def save_result(fw_size, total_time, tx, rx, retx, status="OK"):
         f.write(f"  TX Frames    : {tx}\n")
         f.write(f"  RX Frames    : {rx}\n")
         f.write(f"  Total Frames : {tx + rx}\n")
-        f.write(f"  Retransmit   : {retx} frames ({overhead_pct:.2f}% overhead)\n")
+        f.write(f"  Retransmit attempts : {retx} ({overhead:.2f}% of all send attempts)\n")
+        f.write(f"  Send attempts/drops/socket OK/errors: {metrics.send_attempts}/"
+                f"{metrics.software_drops}/{metrics.socket_send_success}/{metrics.send_errors}\n")
+        f.write(f"  Protocol RX/invalid: {metrics.protocol_rx}/{metrics.invalid_protocol_rx}\n")
         f.write(f"  Status       : {status}\n")
 
     print(f"[LOG] 결과 저장 완료 → {CSV_PATH}")
@@ -94,17 +106,9 @@ def build_can_frame(can_id, data_bytes):
     data_padded = data_bytes + b'\x00' * (8 - len(data_bytes))
     return struct.pack("<IB3x8s", can_id, len(data_bytes), data_padded)
 
-def send_frame_with_enobufs(bus, payload):
+def send_frame_with_enobufs(bus, payload, metrics, *, dropped=False, retransmit=False):
     frame = build_can_frame(CAN_ID_CMD, payload)
-    while True:
-        try:
-            bus.send(frame)
-            break
-        except OSError as e:
-            if getattr(e, 'errno', None) == 105: # ENOBUFS
-                time.sleep(0.0005)
-            else:
-                raise
+    return metrics.attempt_send(bus, frame, dropped=dropped, retransmit=retransmit)
 
 def flush_rx_buffer(bus):
     bus.settimeout(0.0)
@@ -126,31 +130,54 @@ def trigger_fota_entry(bus):
     flush_rx_buffer(bus)  # 리셋 전 수신된 스토일 데이터 제거
     print("[FOTA] 부트로더 준비 완료. FOTA 시작!")
 
-def wait_sf_ack(bus, expected_cmd, timeout=3.0):
-    global total_frames_received
+def wait_sf_ack(bus, expected_cmd, metrics, timeout=3.0):
     bus.settimeout(timeout)
-    start_time = time.time()
-    while time.time() - start_time < timeout:
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < timeout:
         try:
             frame = bus.recv(16)
             if len(frame) == 16:
                 rx_id, rx_dlc, rx_data = struct.unpack("<IB3x8s", frame)
-                rx_id &= 0x7FF 
-                if rx_id == CAN_ID_RESP:
-                    total_frames_received += 1
-                    # Single Frame 파싱 (0x00 ~ 0x07)
-                    if (rx_data[0] & 0xF0) == 0x00:
-                        sf_len = rx_data[0] & 0x0F
-                        if sf_len >= 2 and rx_data[1] == expected_cmd:
-                            return rx_data[1:1+sf_len]
+                if standard_data_id(rx_id, CAN_ID_RESP):
+                    sf_len = rx_data[0] & 0x0F
+                    expected_len = 4 if expected_cmd == CMD_FW_START else 2
+                    if rx_dlc == 8 and (rx_data[0] & 0xF0) == 0x00 and \
+                            sf_len == expected_len and rx_data[1] == expected_cmd:
+                        metrics.protocol_rx += 1
+                        return rx_data[1:1 + sf_len]
+                    metrics.invalid_protocol_rx += 1
+                elif (rx_id & 0x7FF) == CAN_ID_RESP:
+                    metrics.invalid_protocol_rx += 1
         except socket.timeout:
             return None
         except BlockingIOError:
             pass
     return None
 
-def raw_isotp_send_chunk(bus, payload, loss_rate):
-    global total_frames_sent, total_frames_received
+def wait_fc(bus, metrics, timeout=1.0):
+    """Accept only the fixed target FC: standard 0x7e8, DLC 8, CTS/BS=8/STmin=0."""
+    bus.settimeout(timeout)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            frame = bus.recv(16)
+            if len(frame) != 16:
+                continue
+            rx_id, rx_dlc, rx_data = struct.unpack("<IB3x8s", frame)
+            if standard_data_id(rx_id, CAN_ID_RESP):
+                if rx_dlc == 8 and rx_data[0] == 0x30 and rx_data[1] == 8 and rx_data[2] == 0:
+                    metrics.protocol_rx += 1
+                    return True
+                metrics.invalid_protocol_rx += 1
+            elif (rx_id & 0x7FF) == CAN_ID_RESP:
+                metrics.invalid_protocol_rx += 1
+        except socket.timeout:
+            return False
+        except BlockingIOError:
+            pass
+    return False
+
+def raw_isotp_send_chunk(bus, payload, loss_rate, metrics, retransmit=False):
     payload_len = len(payload)
     
     # 1. First Frame (FF) 전송
@@ -159,31 +186,10 @@ def raw_isotp_send_chunk(bus, payload, loss_rate):
     ff_data[1] = payload_len & 0xFF
     ff_data[2:8] = payload[0:6]
     
-    send_frame_with_enobufs(bus, ff_data)
-    total_frames_sent += 1
+    send_frame_with_enobufs(bus, ff_data, metrics, retransmit=retransmit)
     
     # 2. Flow Control (FC) 대기 (1회 왕복 딜레이 발생 포인트)
-    fc_received = False
-    bus.settimeout(1.0)
-    start_time = time.time()
-    while time.time() - start_time < 1.0:
-        try:
-            frame = bus.recv(16)
-            if len(frame) == 16:
-                rx_id, rx_dlc, rx_data = struct.unpack("<IB3x8s", frame)
-                rx_id &= 0x7FF 
-                if rx_id == CAN_ID_RESP:
-                    total_frames_received += 1
-                    if (rx_data[0] & 0xF0) == 0x30:
-                        # BS=0, STmin=0 이라고 가정하고 진행
-                        fc_received = True
-                        break
-        except socket.timeout:
-            break
-        except BlockingIOError:
-            pass
-    
-    if not fc_received:
+    if not wait_fc(bus, metrics):
         return False
         
     # 3. Consecutive Frames (CF) 풀악셀 전송
@@ -195,21 +201,18 @@ def raw_isotp_send_chunk(bus, payload, loss_rate):
         cf_data[0] = 0x20 | (seq & 0x0F)
         cf_data[1:1+cf_len] = payload[idx:idx+cf_len]
         
-        # 패킷 고의 유실
-        if loss_rate > 0 and random.random() < loss_rate:
-            idx += cf_len
-            seq = (seq + 1) & 0x0F
-            continue
-            
-        send_frame_with_enobufs(bus, cf_data)
-        total_frames_sent += 1
+        send_frame_with_enobufs(bus, cf_data, metrics,
+                                dropped=(loss_rate > 0 and random.random() < loss_rate),
+                                retransmit=retransmit)
         idx += cf_len
         seq = (seq + 1) & 0x0F
+        if (seq - 1) % 8 == 0 and idx < payload_len and not wait_fc(bus, metrics):
+            return False
         
     return True
 
 def start_can_fota(firmware_path):
-    global total_frames_sent, retransmitted_frames, total_transmission_time, total_frames_received
+    global total_transmission_time
     
     try:
         # 🚨 [하드웨어 시뮬레이션 완벽 통제] python-can을 버리고 Pure Raw SocketCAN 적용!
@@ -236,7 +239,6 @@ def start_can_fota(firmware_path):
     print(f"[CAN] 전송할 펌웨어 크기: {fw_size} bytes")
     print(f"[CAN] RAW ISO-TP 측정 시작 (Pure SocketCAN 최적화 적용) (Packet Loss: {LOSS_RATE*100}%)")
 
-    fota_start_time = time.time()
     flush_rx_buffer(bus)
     
     # 3. [Start] 명령 전송 (Single Frame)
@@ -244,13 +246,16 @@ def start_can_fota(firmware_path):
     sf_data[0] = 0x05
     sf_data[1] = CMD_FW_START
     sf_data[2:6] = struct.pack('<I', fw_size)
+
+    # Transaction time excludes entry/reset wait and ends immediately at END ACK.
+    metrics = Metrics()
+    fota_start_time = time.monotonic()
+    send_frame_with_enobufs(bus, sf_data, metrics)
     
-    send_frame_with_enobufs(bus, sf_data)
-    total_frames_sent += 1
-    
-    rx_payload = wait_sf_ack(bus, CMD_FW_START, timeout=15.0)
-    if not rx_payload:
+    rx_payload = wait_sf_ack(bus, CMD_FW_START, metrics, timeout=15.0)
+    if not rx_payload or rx_payload[1] != 0:
         print("[CAN] Error: Start ACK Timeout")
+        save_result(fw_size, time.monotonic() - fota_start_time, metrics, status="FAIL_START")
         return
         
     if len(rx_payload) >= 4:
@@ -271,13 +276,11 @@ def start_can_fota(firmware_path):
         while not success and retry_count < MAX_RETRIES:
             if retry_count > 0:
                 print(f"\n[CAN] Block {i//chunk_size} 재전송 #{retry_count} (ISO-TP Go-Back-N: 256B 블록 전체)")
-                # 블록 전체 재전송 비용 가산 (FF 1 + 모든 CF)
-                retransmitted_frames += ((len(payload) + 6) // 7)
                 
             flush_rx_buffer(bus)
-            if raw_isotp_send_chunk(bus, payload, LOSS_RATE):
-                # 최신 OEM 권장 규격(N_Cr ~ 150ms) 적용
-                ack = wait_sf_ack(bus, CMD_FW_DATA, timeout=0.15)
+            if raw_isotp_send_chunk(bus, payload, LOSS_RATE, metrics,
+                                    retransmit=(retry_count > 0)):
+                ack = wait_sf_ack(bus, CMD_FW_DATA, metrics, timeout=0.15)
                 if ack and ack[1] == 0:  # BOOT_OK
                     success = True
                     break
@@ -285,7 +288,7 @@ def start_can_fota(firmware_path):
             
         if not success:
             print(f"\n[CAN] 경고: Block {i//chunk_size} {MAX_RETRIES}회 재시도 후에도 실패. 계속 진행.")
-            save_result(fw_size, time.time() - fota_start_time, total_frames_sent, total_frames_received, retransmitted_frames, status="FAIL")
+            save_result(fw_size, time.monotonic() - fota_start_time, metrics, status="FAIL")
             return
 
 
@@ -300,15 +303,17 @@ def start_can_fota(firmware_path):
     sf_data[1] = CMD_FW_END
     sf_data[2:6] = struct.pack('<I', fw_crc32)
     
-    send_frame_with_enobufs(bus, sf_data)
-    total_frames_sent += 1
+    send_frame_with_enobufs(bus, sf_data, metrics)
     
-    ack = wait_sf_ack(bus, CMD_FW_END, timeout=3.0)
+    ack = wait_sf_ack(bus, CMD_FW_END, metrics, timeout=3.0)
     if ack and ack[1] == 0:
         print("[CAN] 펌웨어 무결성 최종 통과! (CRC Validated) ✅")
     else:
         print("[CAN] CRC 검증 실패")
+        save_result(fw_size, time.monotonic() - fota_start_time, metrics, status="FAIL_CRC")
         return
+
+    total_transmission_time = time.monotonic() - fota_start_time
 
     # 6. [Jump] 명령 전송
     time.sleep(0.5)
@@ -317,28 +322,27 @@ def start_can_fota(firmware_path):
     sf_data[1] = CMD_FW_JUMP_TO_FW
     sf_data[2] = 0x00
     
-    send_frame_with_enobufs(bus, sf_data)
+    bus.send(build_can_frame(CAN_ID_CMD, sf_data))  # excluded JUMP phase
     print("[CAN] JUMP 명령 전송 완료.")
 
-    total_transmission_time = time.time() - fota_start_time
-    overhead_pct = (retransmitted_frames / total_frames_sent) * 100 if total_frames_sent > 0 else 0
+    overhead = overhead_pct(metrics)
     
     print(f"=============================================")
     time.sleep(0.05)
     print(f"[RESULT] 총 소요 시간 (Loss {LOSS_RATE*100}%): {total_transmission_time:.2f} 초")
     time.sleep(0.05)
-    print(f"[RESULT] 송신 프레임 (TX): {total_frames_sent} 프레임")
+    print(f"[RESULT] socket send accepted: {metrics.socket_send_success} frames")
     time.sleep(0.05)
-    print(f"[RESULT] 수신 프레임 (RX): {total_frames_received} 프레임")
+    print(f"[RESULT] valid protocol RX: {metrics.protocol_rx} frames")
     time.sleep(0.05)
-    print(f"[RESULT] 총 통신 프레임 (TX+RX 합산): {total_frames_sent + total_frames_received} 프레임")
+    print(f"[RESULT] software drops / send errors: {metrics.software_drops} / {metrics.send_errors}")
     time.sleep(0.05)
-    print(f"[RESULT] 트래픽 오버헤드: 재전송 {retransmitted_frames} 프레임 ({overhead_pct:.2f}% 통신 낭비)")
+    print(f"[RESULT] 재전송 send attempts: {metrics.retransmit_attempts} ({overhead:.2f}% of all attempts)")
     time.sleep(0.05)
     print(f"=============================================")
 
     # 결과 저장 (CSV + 로그)
-    save_result(fw_size, total_transmission_time, total_frames_sent, total_frames_received, retransmitted_frames, status="OK")
+    save_result(fw_size, total_transmission_time, metrics, status="OK")
 
 if __name__ == "__main__":
     # CAN 하드웨어 소켓 초기화(Bitrate 1,000,000)

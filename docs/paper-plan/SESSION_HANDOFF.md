@@ -5,10 +5,10 @@
 ## 현재 상태
 
 - 폴더/branch: C:/repos/CanBootloader-paper / paper/ksma-2026
-- HEAD: 7527bca60a46c6e244214d56114109414388a3ae (시작과 동일)
-- 마지막 완료: **P00 DONE** — F407 세 build·주소/크기 점검·원고 골격
+- HEAD: e5f20487f4e92332375e0590879e62ceb57cd035 (P01 시작과 동일)
+- 마지막 완료: **P01 DONE** — F407 sender 시간·frame 집계/응답 검증 host 확인
 - 진행 중 Task: 없음
-- 다음 실행 Task: **P01만**
+- 다음 실행 Task: **P02만**
 - 주 실험 후보: F407. 실제 board boot/smoke는 NOT RUN이며 P03에서 확정.
 - F103: Custom/app PASS, ISO-TP는 Flash 17,224 bytes 초과로 FAIL. 보충 P07 선택 시 처리.
 - 두 ISO-TP submodule: 5593428d95af10dde1e565cebcda16089fc74857로 초기화, 원형 유지.
@@ -20,12 +20,13 @@
 
 ## 변경과 evidence
 
-[보고서 P00](reports/P00.md)에 명령·문제·완료 판정이 있다.
+[보고서 P00](reports/P00.md)와 [P01](reports/P01.md)에 명령·문제·완료 판정이 있다.
 
 - 유일한 tracked source 수정: boot_can_isotp/App/ap/boot_can/isotp_port.h에 stdint.h 선행 include 2줄 추가. wire format·Flash 경계 변경 없음.
 - 기존 untracked AGENTS.md, docs/paper-plan/ 보존. README와 이 handoff는 상태 갱신.
 - 새 원고 3개·초기 설정·P00 report/evidence·build archive는 미커밋 파일이다.
 - 핵심 log / patch / manifest: docs/paper-plan/reports/artifacts/P00-20261005/ (`build.log`, `manifest.json`, `source-dirty.patch`)
+- P01 host 검증 log/manifest: docs/paper-plan/reports/artifacts/P01-20261005/ (`build.log`, `manifest.json`); 실제 FOTA 결과/CSV 없음.
 - 실제 binary/map: experiments/ksma-2026/p00-build-20261005/
 - 실패한 F407 최초 compile과 F103 ISO link overflow의 원문은 build.log에 합쳐 보존했다.
 - *.bin/*.map는 Git ignore 대상이다. archive의 실제 binary를 보존해야 하며 hash만으로 복원된다고 생각하지 않는다.
@@ -49,17 +50,13 @@ P00는 build 기준 확보 완료이며 정상 CAN FOTA를 증명한 것이 아�
 
 F407 64 KiB image: [0x08010000, 0x08020000), erase sector 4. F103: bootloader 16 KiB, app [0x08004000, 0x08014000). main staging 0x08012000/57,336-byte 한도와 혼용 금지.
 
-## 다음 P01의 범위
+## P01 완료와 다음 P02 범위
 
-먼저 AGENTS.md, README, tasks.md P01, codex-session-guide.md, reports/P00.md를 읽는다. F407의 loss_test_custom.py와 loss_test_isotp_raw.py를 대상으로 시간·frame count·응답 검증·FC 준수를 수정하고 host 검증한다.
+[P01 보고](reports/P01.md)의 host 검증으로 두 F407 sender의 time boundary는 monotonic START 직전부터 유효 END ACK 직후까지로 통일됐다. FOTA-entry reset/JUMP phase는 측정에서 제외한다. Metrics는 send attempt/software drop/socket acceptance/error/protocol RX/retransmission을 구분하며 overhead 분모는 모든 send attempt다. SocketCAN acceptance는 on-wire 완료나 CAN automatic retransmission 수가 아니다.
 
-반드시 반영할 근거:
+Custom은 standard `0x101`, ACK/ERR DLC 2, NACK DLC 8을 검증한다. ISO-TP는 padded standard `0x7e8` SF 및 FC DLC 8, CTS/BS=8/STmin=0을 검증하고 initial FC와 8 CF마다의 FC를 준수한다. malformed response는 성공이 아니다. fixed submodule의 response timeout은 100 ms이나 P01 sender의 host wait/retry 정책은 바꾸지 않았다.
 
-1. Custom은 END ACK 이후 시간 종료, ISO-TP는 0.5초 대기·JUMP 이후 종료한다. monotonic START 직전→유효 END ACK 직후로 맞춘다.
-2. Custom TX는 software drop 포함, ISO CF TX는 제외한다. 시도/drop/socket 성공/error/protocol RX/retransmit 계수를 분리하고 overhead 분모를 정한다.
-3. 고정 submodule의 FC는 **BS=8, STmin=0, timeout=100 ms**인데 F407 sender는 BS=0/STmin=0을 가정한다. application chunk=256 bytes와 구별하고 FC/DLC/ID flags/status를 검증한다.
-4. P02 범위인 loss model/seed/전체 retry deadline/runner를 자동 시작하지 않는다. P01 구현에 불가피한 경계는 근거를 보고하고 분리한다.
-5. 현재 네 sender의 출력은 모두 can-fota-BBB/fota_results.csv다. 기존 result/*.csv의 생성 source/binary 동일성은 확인되지 않았다. 기존 CSV를 건드리지 않는다.
+P02에서는 loss 대상과 seed/model, bounded deadline, runner manifest/exit status, START/DATA/END/JUMP failure 기록을 정한다. P01에서 기존 `MAX_RETRIES=50`과 Custom timeout tail probe의 무한 반복 가능성은 정책 변경 없이 남겼으므로 P02에서 유한 종료 기준으로 처리한다. hardware trace/actual FOTA는 P03까지 NOT RUN이다.
 
 후속 gate:
 
@@ -76,20 +73,18 @@ F407 64 KiB image: [0x08010000, 0x08020000), erase sector 4. F103: bootloader 16
 - 위 장비는 P03 전에 필요하다. P01의 host 검증은 장비 없이 진행 가능하다.
 - 실제 program/erase 허가는 대상·binary/hash/address를 확인한 뒤 P03에서 별도로 받는다.
 
-실행 중인 프로세스: **없음**. 다음 run은 새 ID를 사용하고 기존 archive를 덮어쓰지 않는다. Task evidence는 통합 log·manifest·dirty patch만 남기는 정리 원칙을 README에 기록했다.
+실행 중인 프로세스: **없음**. P01은 CSV/run을 만들지 않았다. 다음 run은 새 ID를 사용하고 기존 archive를 덮어쓰지 않는다. P01 evidence는 `reports/artifacts/P01-20261005/build.log`, `manifest.json`이며 source SHA-256로 dirty sender를 특정한다.
 
 ## 다음 대화 시작 prompt
 
 ```text
 C:\repos\CanBootloader-paper의 paper/ksma-2026에서 진행해줘.
 AGENTS.md와 docs/paper-plan/README.md, SESSION_HANDOFF.md,
-tasks.md의 P01, codex-session-guide.md, reports/P00.md를 읽어라.
-이번 대화에서는 P01만 수행해줘. 먼저 git status, HEAD, submodule 상태를 확인하고
-기존 미커밋 수정과 P00 로그/binary 및 예비 CSV를 보존해줘.
-F407 Custom/ISO-TP sender의 monotonic 시간 경계, frame 계수와 overhead 정의,
-ACK/NACK/ERR/FC 응답 검증을 맞추고 host 검증해줘.
-고정 submodule의 BS=8/STmin=0과 현재 sender의 BS=0 가정 차이를 반영해줘.
-P02, hardware flashing, main TW-03은 자동 시작하지 마.
-종료 전에 reports/P01.md, README 상태, SESSION_HANDOFF를 갱신하고
+tasks.md의 P02, codex-session-guide.md, reports/P00.md, reports/P01.md를 읽어라.
+이번 대화에서는 P02만 수행해줘. 먼저 git status, HEAD, submodule 상태를 확인하고
+기존 미커밋 수정과 P00/P01 evidence 및 예비 CSV를 보존해줘.
+F407 sender의 loss 대상·seed/model·bounded deadline·모든 종료 상태 기록과 runner manifest를 정리하고 host 검증해줘.
+P03 hardware flashing/FOTA, F103, main TW-03은 자동 시작하지 마.
+종료 전에 reports/P02.md, README 상태, SESSION_HANDOFF를 갱신하고
 다음 prompt와 준비할 것을 알려줘. commit/push, 외부 제출·연락은 하지 마.
 ```
