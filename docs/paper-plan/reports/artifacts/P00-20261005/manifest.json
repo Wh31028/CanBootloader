@@ -1,0 +1,335 @@
+﻿{
+    "task":  "P00",
+    "build_id":  "p00-build-20261005",
+    "branch":  "paper/ksma-2026",
+    "head":  "7527bca60a46c6e244214d56114109414388a3ae",
+    "submodule_revision":  "5593428d95af10dde1e565cebcda16089fc74857",
+    "toolchain":  {
+                      "cmake":  "3.28.1",
+                      "ninja":  "1.11.1",
+                      "arm_gcc":  "13.3.1 (GNU Tools for STM32 13.3.rel1.20240926-1715)"
+                  },
+    "builds":  [
+                   {
+                       "project":  "boot_can_custom",
+                       "compiled_family_check":  true,
+                       "optimization_flags":  [
+                                                  "-O3 -Os",
+                                                  "-Os",
+                                                  "-Os -Os"
+                                              ],
+                       "artifacts":  [
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_custom/boot_can_custom.bin",
+                                             "size":  33472,
+                                             "sha256":  "5ca343d79630a38389a3902b12dd7547982bf33cade76a99b7e38d355b4f1ac5"
+                                         },
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_custom/boot_can_custom.map",
+                                             "size":  360364,
+                                             "sha256":  "dbd50f3b12f43887e8b4db85bdd71a42f0f47a5745f1d651ba602cccb136a2c8"
+                                         }
+                                     ],
+                       "binary":  {
+                                      "size":  33472,
+                                      "sha256":  "5ca343d79630a38389a3902b12dd7547982bf33cade76a99b7e38d355b4f1ac5",
+                                      "origin":  "0x8000000",
+                                      "end_exclusive":  "0x80082c0",
+                                      "sp":  "0x20020000",
+                                      "reset":  "0x8003039",
+                                      "size_limit":  65536,
+                                      "size_ok":  true,
+                                      "vector_ok":  true
+                                  }
+                   },
+                   {
+                       "project":  "boot_can_isotp",
+                       "compiled_family_check":  true,
+                       "optimization_flags":  [
+                                                  "-O3 -O0",
+                                                  "-Os",
+                                                  "-Os -O0"
+                                              ],
+                       "artifacts":  [
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_isotp/boot_can_isotp.bin",
+                                             "size":  42140,
+                                             "sha256":  "aa372af4eef710dd51cbe8d231dde85509240e0cced1fcecebc7315509341e5f"
+                                         },
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_isotp/boot_can_isotp.map",
+                                             "size":  370133,
+                                             "sha256":  "ee5eac70a762e2a8c86616463e4e2804a7d1256753cd548bd4def1d201d2f6ab"
+                                         }
+                                     ],
+                       "binary":  {
+                                      "size":  42140,
+                                      "sha256":  "aa372af4eef710dd51cbe8d231dde85509240e0cced1fcecebc7315509341e5f",
+                                      "origin":  "0x8000000",
+                                      "end_exclusive":  "0x800a49c",
+                                      "sp":  "0x20020000",
+                                      "reset":  "0x8003315",
+                                      "size_limit":  65536,
+                                      "size_ok":  true,
+                                      "vector_ok":  true
+                                  }
+                   },
+                   {
+                       "project":  "boot_can_fw",
+                       "compiled_family_check":  true,
+                       "optimization_flags":  [
+                                                  "-O3 -O0",
+                                                  "-Os",
+                                                  "-Os -O0"
+                                              ],
+                       "artifacts":  [
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_fw/boot_can_fw.bin",
+                                             "size":  36832,
+                                             "sha256":  "98b0b38340f72bff9098a6e25879047ed171f02dc0146d880e4fa343867a40d8"
+                                         },
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_fw/boot_can_fw.map",
+                                             "size":  357143,
+                                             "sha256":  "a8be10d094863d3a60525d504f688af76742747c4c968a032d7f2753d19c346c"
+                                         }
+                                     ],
+                       "binary":  {
+                                      "size":  36832,
+                                      "sha256":  "98b0b38340f72bff9098a6e25879047ed171f02dc0146d880e4fa343867a40d8",
+                                      "origin":  "0x8010000",
+                                      "end_exclusive":  "0x8018fe0",
+                                      "sp":  "0x20020000",
+                                      "reset":  "0x80131f1",
+                                      "size_limit":  65536,
+                                      "size_ok":  true,
+                                      "vector_ok":  true
+                                  }
+                   },
+                   {
+                       "project":  "boot_can_custom_f103",
+                       "compiled_family_check":  true,
+                       "optimization_flags":  [
+                                                  "-O3 -Os",
+                                                  "-Os",
+                                                  "-Os -Os"
+                                              ],
+                       "artifacts":  [
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_custom_f103/boot_can_custom_f103.bin",
+                                             "size":  8240,
+                                             "sha256":  "4b1c837c23144f39edfeff2a1509fe7d66bbfe87efb88ac219c8f0edc64e9e93"
+                                         },
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_custom_f103/boot_can_custom_f103.map",
+                                             "size":  197629,
+                                             "sha256":  "3007354629c1833d5eb45adab40ee7ad464f9a2847a322b3a3d2bc67c1ecd7ad"
+                                         }
+                                     ],
+                       "binary":  {
+                                      "size":  8240,
+                                      "sha256":  "4b1c837c23144f39edfeff2a1509fe7d66bbfe87efb88ac219c8f0edc64e9e93",
+                                      "origin":  "0x8000000",
+                                      "end_exclusive":  "0x8002030",
+                                      "sp":  "0x20005000",
+                                      "reset":  "0x80018b1",
+                                      "size_limit":  16384,
+                                      "size_ok":  true,
+                                      "vector_ok":  true
+                                  }
+                   },
+                   {
+                       "project":  "boot_can_isotp_f103",
+                       "compiled_family_check":  true,
+                       "optimization_flags":  [
+                                                  "-O3 -Os",
+                                                  "-Os",
+                                                  "-Os -Os"
+                                              ],
+                       "artifacts":  [
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_isotp_f103/boot_can_isotp_f103.map",
+                                             "size":  355674,
+                                             "sha256":  "a63cc4d1871dc4268b7ec6fee200413e3287b796a28a77c8c2cb11de632de193"
+                                         }
+                                     ]
+                   },
+                   {
+                       "project":  "boot_can_fw_f103",
+                       "compiled_family_check":  true,
+                       "optimization_flags":  [
+                                                  "-O3 -O0",
+                                                  "-Os",
+                                                  "-Os -O0"
+                                              ],
+                       "artifacts":  [
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_fw_f103/boot_can_fw.bin",
+                                             "size":  35240,
+                                             "sha256":  "31c16bc877b8bd3483c38db4751f6f2a6a5319a9a5164dfb445ea9ecb2a77574"
+                                         },
+                                         {
+                                             "path":  "experiments/ksma-2026/p00-build-20261005/boot_can_fw_f103/boot_can_fw.map",
+                                             "size":  343467,
+                                             "sha256":  "152e35f2d62cb78ce572fd5caf731460626417efe76180c4372d097166d879f5"
+                                         }
+                                     ],
+                       "binary":  {
+                                      "size":  35240,
+                                      "sha256":  "31c16bc877b8bd3483c38db4751f6f2a6a5319a9a5164dfb445ea9ecb2a77574",
+                                      "origin":  "0x8004000",
+                                      "end_exclusive":  "0x800c9a8",
+                                      "sp":  "0x20005000",
+                                      "reset":  "0x8006cb5",
+                                      "size_limit":  65536,
+                                      "size_ok":  true,
+                                      "vector_ok":  true
+                                  }
+                   }
+               ],
+    "legacy_csv_inventory":  [
+                                 {
+                                     "path":  "can-fota-BBB/new_custom_results.csv",
+                                     "sha256":  "7386b6bf2eae548c7556a239a0747d1a7ac53bc8e1962e4183dd10f138d9a9d6",
+                                     "rows":  40,
+                                     "statuses":  {
+                                                      "OK":  40
+                                                  },
+                                     "groups":  {
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.05000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.10000\u0027)":  10
+                                                }
+                                 },
+                                 {
+                                     "path":  "can-fota-BBB/result/fota_result_STmin5.csv",
+                                     "sha256":  "d572e3c933a50545cf78c5b0329c18d2c964a93ae7d56bd611c3956355feef55",
+                                     "rows":  80,
+                                     "statuses":  {
+                                                      "OK":  80
+                                                  },
+                                     "groups":  {
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.05000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.10000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.05000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.10000\u0027)":  10
+                                                }
+                                 },
+                                 {
+                                     "path":  "can-fota-BBB/result/fota_results_f103.csv",
+                                     "sha256":  "6538a05f67cd82baf6c20848b101b0d3ecea705cb425fdccc339e2d47a05cab9",
+                                     "rows":  240,
+                                     "statuses":  {
+                                                      "OK":  240
+                                                  },
+                                     "groups":  {
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.10000\u0027)":  30
+                                                }
+                                 },
+                                 {
+                                     "path":  "can-fota-BBB/result/fota_results_new.csv",
+                                     "sha256":  "0da72b8907f7d9e8da1d787c98626a0867e096df04eb10e33da2cf6834287bb0",
+                                     "rows":  960,
+                                     "statuses":  {
+                                                      "OK":  960
+                                                  },
+                                     "groups":  {
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.10000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.00000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.01000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.05000\u0027)":  30,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.10000\u0027)":  30
+                                                }
+                                 },
+                                 {
+                                     "path":  "can-fota-BBB/result/fota_results_test.csv",
+                                     "sha256":  "6c229a7a20a51fdde505fe1ead1ea4886663fd79e8a10599ae81dfb401a4d662",
+                                     "rows":  320,
+                                     "statuses":  {
+                                                      "OK":  313,
+                                                      "FAIL":  7
+                                                  },
+                                     "groups":  {
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.10000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u002765536\u0027, \u00270.50000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.00100\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.00500\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027131072\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.00100\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.00500\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027262144\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.00100\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.00500\u0027)":  10,
+                                                    "(\u0027RAW ISO-TP\u0027, \u0027524288\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.10000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u002765536\u0027, \u00270.50000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.00100\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.00500\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027131072\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.00100\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.00500\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027262144\u0027, \u00270.01000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.00000\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.00100\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.00500\u0027)":  10,
+                                                    "(\u0027Custom\u0027, \u0027524288\u0027, \u00270.01000\u0027)":  10
+                                                }
+                                 }
+                             ],
+    "stlink":  "No ST-Link detected",
+    "hardware_trials_executed":  0,
+    "validation":  {
+                       "generated_binaries":  "PASS (5)",
+                       "f103_isotp":  "FAIL: 33,608 B used in 16,384 B region; overflow 17,224 B",
+                       "legacy_csv_and_pptx_hashes":  "PASS",
+                       "git_diff_check":  "PASS"
+                   }
+}

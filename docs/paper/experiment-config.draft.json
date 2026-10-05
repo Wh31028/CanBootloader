@@ -1,0 +1,82 @@
+{
+  "schema": "ksma-2026-p00-draft-1",
+  "status": "DRAFT_NOT_EXECUTABLE",
+  "task": "P00",
+  "baseline_commit": "7527bca60a46c6e244214d56114109414388a3ae",
+  "submodule_revision": "5593428d95af10dde1e565cebcda16089fc74857",
+  "candidate_mcu": "STM32F407",
+  "physical_board_id": null,
+  "bbb_connection": null,
+  "can_interface": "can0",
+  "bitrate_candidate": 1000000,
+  "protocols": [
+    "Custom_bitmap",
+    "ISO_TP_application_block_retry"
+  ],
+  "flash_mode": "direct-write",
+  "application_start": "0x08010000",
+  "image_end_exclusive": "0x08020000",
+  "erase_sectors": [
+    4
+  ],
+  "image_size_bytes": 65536,
+  "base_image": {
+    "path": "experiments/ksma-2026/p00-build-20261005/boot_can_fw/boot_can_fw.bin",
+    "sha256": "98b0b38340f72bff9098a6e25879047ed171f02dc0146d880e4fa343867a40d8",
+    "bytes": 36832,
+    "boot_verified": false
+  },
+  "padding": {
+    "proposed_rule": "append byte i % 256 for i=0..padding_length-1",
+    "bytes": 28704,
+    "padded_sha256": null,
+    "padded_artifact": null
+  },
+  "application_block_bytes": 256,
+  "loss_probabilities": [
+    0,
+    0.0001,
+    0.0005,
+    0.001
+  ],
+  "trials_per_condition": 30,
+  "planned_trials": 240,
+  "loss_model": {
+    "kind": "sender_software_omission",
+    "eligible_frames": "TODO_P02",
+    "retransmission_policy": "TODO_P02",
+    "seed_schedule": null,
+    "ack_nack_fc_loss": false
+  },
+  "measurement": {
+    "clock": "monotonic_TODO_P01",
+    "start": "immediately_before_START_send",
+    "end": "immediately_after_valid_END_ACK",
+    "includes": [
+      "erase",
+      "write",
+      "CRC"
+    ],
+    "excludes": [
+      "download",
+      "bootloader_entry_wait",
+      "pre_JUMP_wait",
+      "boot_check"
+    ],
+    "overhead_denominator": "TODO_P01"
+  },
+  "deadlines": "TODO_P02",
+  "execution_order": "TODO_P02_balanced_batches_or_interleaving",
+  "p00_receiver_fc": {
+    "bs": 8,
+    "stmin_ms": 0,
+    "response_timeout_ms": 100
+  },
+  "comparison_gates": [
+    "P01_FC_response_validation_and_measurement",
+    "P02_bounded_failure_recording_and_loss_policy",
+    "P03_optimization_policy_and_binary_refreeze",
+    "P03_hardware_smoke_and_trace"
+  ],
+  "hardware_trials_executed": 0
+}

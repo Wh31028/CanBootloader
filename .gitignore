@@ -31,3 +31,10 @@ __pycache__/
 # 시스템 파일
 .DS_Store
 Thumbs.db
+
+# Codex local instructions and generated P00 build evidence.
+# Keep the human-readable report and manifest under version control.
+/AGENTS.md
+/docs/paper-plan/reports/artifacts/*/build.log
+/docs/paper-plan/reports/artifacts/*/source-dirty.patch
+/experiments/ksma-2026/p00-build-20261005/
