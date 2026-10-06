@@ -1,4 +1,8 @@
 #!/bin/bash
+# P02 append-only runner.  It requires a frozen config and a new run directory.
+if [ "$1" = "--config" ]; then
+    exec python3 "$(dirname "$0")/experiment_runner.py" "$@"
+fi
 echo "============================================="
 echo "   FOTA Packet Loss Benchmarking Script"
 echo "   (Automatic Size Progression: 64 -> 512)"

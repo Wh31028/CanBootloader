@@ -1,3 +1,7 @@
+if __name__ == '__main__':
+    from fota_sender_p02 import main as p02_main
+    raise SystemExit(p02_main('RAW_ISO-TP'))
+
 import sys
 import time
 import struct

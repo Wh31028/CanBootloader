@@ -6,10 +6,10 @@
 
 1. Codex에서 `C:/repos/CanBootloader-paper`를 작업 폴더로 연다.
 2. [인수인계](SESSION_HANDOFF.md)의 다음 대화 시작 prompt를 붙여 넣는다.
-3. P00과 P01은 완료했다. 다음 대화에서는 `P02`만 수행한다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
+3. P00~P02는 완료했다. 다음 대화에서는 `P03`만 수행한다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
 4. 다음 대화도 같은 폴더에서 열고, handoff에 지정된 Task만 수행한다.
 
-현재 단계는 **P01 DONE (2026-10-05)**이다. F407 sender의 monotonic 시간 경계·frame 계수·응답/FC 검증을 host 수준에서 통일했다. 다음 대화는 **P02만** 수행한다. hardware smoke/본 실험/제출은 미실행이다. 상세 근거는 [P01 보고](reports/P01.md)를 따른다.
+현재 단계는 **P02 DONE (2026-10-06)**이다. F407 sender의 loss/seed/deadline/실패 기록과 append-only runner를 host 수준에서 정리했다. 다음 대화는 **P03만** 수행한다. hardware smoke/본 실험/제출은 미실행이다. 상세 근거는 [P02 보고](reports/P02.md)를 따른다.
 
 ## 문서 작성 원칙
 
@@ -66,7 +66,7 @@ TW-03 전체는 보류하지만 실험 sender의 bounded retry/deadline, malform
 | --- | --- | --- | --- | --- |
 | P00 | 실험 baseline·build·제출 조건 확인, 글 골격 | 10/4~5 | 없음 | DONE |
 | P01 | 시간·frame 집계 기준 통일 | 10/5~6 | P00 | DONE |
-| P02 | loss/retry/실패 기록·runner 정리 | 10/6~7 | P01 | TODO |
+| P02 | loss/retry/실패 기록·runner 정리 | 10/6~7 | P01 | DONE |
 | P03 | hardware smoke와 측정 검증 | 10/7~8 | P02 | TODO |
 | P04 | 주 MCU의 240회 핵심 실험 | 10/8~10 | P03 | TODO |
 | P05 | 통계·그림·1페이지 요약문 | 10/11~12 | P04 | TODO |

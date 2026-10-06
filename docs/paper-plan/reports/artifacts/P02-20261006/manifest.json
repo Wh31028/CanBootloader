@@ -1,0 +1,24 @@
+{
+  "task": "P02",
+  "date": "2026-10-06",
+  "scope": "F407 sender host-only verification; no CAN, board, Flash, FOTA, or experiment CSV run",
+  "head_at_start": "eff7a211320ecc8deeed2e4622dca45513792473",
+  "source_sha256": {
+    "can-fota-BBB/fota_p01.py": "d7a01c04e18237eac9d3008fdc86dc4984e9e02e8805f0bfb7a94dbbba3b0e82",
+    "can-fota-BBB/fota_p02.py": "7e8f53322b01e967ac101518cba86adc1afb7c6cade2c897b298de462f083d0a",
+    "can-fota-BBB/fota_sender_p02.py": "3018f4bc0f2a5cf19c277594c6ff4e45eeb71adb5b6a0d01492906836137c95f",
+    "can-fota-BBB/experiment_runner.py": "beb122f3d8eb83238207753c8ad6424baec93b012efa03b5ad0767da2ba046ad",
+    "can-fota-BBB/test_p02_host.py": "82f87c05c4c11c88b473c26f3fa6eeb07baad0ed493dad51661ea84a09050cce"
+  },
+  "commands": [
+    "python can-fota-BBB/test_p02_host.py",
+    "python -m py_compile can-fota-BBB/fota_p01.py can-fota-BBB/fota_p02.py can-fota-BBB/fota_sender_p02.py can-fota-BBB/loss_test_custom.py can-fota-BBB/loss_test_isotp_raw.py can-fota-BBB/experiment_runner.py can-fota-BBB/test_p02_host.py",
+    "git diff --check"
+  ],
+  "results": {
+    "host_mock": "PASS: normal Custom/ISO-TP, ENOBUFS deadline, no response, CRC failure, same seed",
+    "py_compile": "PASS",
+    "diff_check": "PASS",
+    "hardware_and_fota": "NOT RUN"
+  }
+}

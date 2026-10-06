@@ -22,8 +22,9 @@ class Metrics:
     retransmit_send_success: int = 0
     invalid_protocol_rx: int = 0
 
-    def attempt_send(self, bus, frame, dropped=False, retransmit=False):
-        """Account one host send attempt; ENOBUFS retries are socket errors."""
+    def attempt_send(self, bus, frame, dropped=False, retransmit=False,
+                     deadline=None, enobufs_backoff=0.001):
+        """Account one logical host send attempt with a finite ENOBUFS wait."""
         import errno
         import time
         self.send_attempts += 1
@@ -42,7 +43,9 @@ class Metrics:
             except OSError as exc:
                 self.send_errors += 1
                 if exc.errno == errno.ENOBUFS:
-                    time.sleep(0.0005)
+                    if deadline is not None and time.monotonic() >= deadline:
+                        return False
+                    time.sleep(enobufs_backoff)
                     continue
                 raise
 
