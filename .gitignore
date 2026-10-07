@@ -38,3 +38,9 @@ Thumbs.db
 /docs/paper-plan/reports/artifacts/*/build.log
 /docs/paper-plan/reports/artifacts/*/source-dirty.patch
 /experiments/ksma-2026/p00-build-20261005/
+
+# Local-only hardware evidence: BBB copies include raw CSV/JSONL/candump,
+# copied firmware, and transient PID/cache files.  Keep the concise report,
+# command, run ID, and hashes in docs/paper-plan/reports/*.md instead.
+/docs/paper-plan/reports/artifacts/*/bbb-*/
+/docs/paper-plan/reports/artifacts/*/cubeide-before-cleanup-semantic.diff

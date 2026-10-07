@@ -9,7 +9,7 @@
 3. P00~P02는 완료했고 P03은 F407 Custom의 1회 hardware smoke/readback 성공까지 진행했다. 다음 대화에서는 `P03`만 이어간다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
 4. 다음 대화도 같은 폴더에서 열고, handoff에 지정된 Task만 수행한다.
 
-현재 단계는 **P03 IN_PROGRESS (2026-10-07)**이다. F407 Custom의 500 kbit/s loss 0% smoke 1회는 END CRC ACK 및 64 KiB readback exact match까지 성공했다. ISO-TP smoke, 방식별 5회 반복, application boot 관측은 아직 실행하지 않았다. 다음 대화는 **P03만** 이어간다. P04 본 실험과 제출은 미실행이다. 상세 근거는 [P03 보고](reports/P03.md)를 따른다.
+현재 단계는 **P03 DONE (2026-10-07)**이다. F407 Custom/ISO-TP의 500 kbit/s loss 0% smoke 각 5회, hardware omission recovery, ISO-TP bounded failure와 64 KiB FOTA 복구·ST-LINK readback을 완료했다. timeout 직후의 target 무응답 실패도 원시 증적으로 보존했고, 최종 recovery run `isotp-recovery-after-timeout-06`은 12.111229 s에 성공했다. 다음 대화는 **P04만** 수행한다. P04 본 실험과 제출은 아직 시작하지 않았다. 상세 근거는 [P03 보고](reports/P03.md)를 따른다.
 
 ## 문서 작성 원칙
 
@@ -67,7 +67,7 @@ TW-03 전체는 보류하지만 실험 sender의 bounded retry/deadline, malform
 | P00 | 실험 baseline·build·제출 조건 확인, 글 골격 | 10/4~5 | 없음 | DONE |
 | P01 | 시간·frame 집계 기준 통일 | 10/5~6 | P00 | DONE |
 | P02 | loss/retry/실패 기록·runner 정리 | 10/6~7 | P01 | DONE |
-| P03 | hardware smoke와 측정 검증 | 10/7~8 | P02 | IN_PROGRESS — Custom 1회 smoke/readback 성공; ISO-TP·반복·boot 관측 남음 |
+| P03 | hardware smoke와 측정 검증 | 10/7~8 | P02 | DONE — 양 방식 5회 baseline, recovery/timeout, boot/readback 기록 |
 | P04 | 주 MCU의 240회 핵심 실험 | 10/8~10 | P03 | TODO |
 | P05 | 통계·그림·1페이지 요약문 | 10/11~12 | P04 | TODO |
 | P06 | 2~3페이지 전문 초안 | 10/12~15 | P05 | TODO |
@@ -117,7 +117,7 @@ P00에서 abstract/manuscript 골격을 작성했다. hardware가 일시적으�
 
 P00에서 생성한 원고: [요약문](../paper/abstract.md), [전문](../paper/manuscript.md), [참고 출처](../paper/references.md), [초기 설정안](../paper/experiment-config.draft.json). 모든 재실험 결과는 미확정이다. [P00 report](reports/P00.md)와 [원시 근거](reports/artifacts/P00-20261005/) 및 experiments/ksma-2026/p00-build-20261005/의 실제 build 산출물을 보존한다.
 
-기존 계획 문서: 이 README, [Task 상세](tasks.md), [새 대화 안내](codex-session-guide.md), [handoff](SESSION_HANDOFF.md), [보고 템플릿](reports/TEMPLATE.md).
+기존 계획 문서: 이 README, [Task 상세](tasks.md), [새 대화 안내](codex-session-guide.md), [F407ㆍBBB 장비 운영 안내](hardware-operations.md), [handoff](SESSION_HANDOFF.md), [보고 템플릿](reports/TEMPLATE.md).
 
 아래 중 P00 보고·원고 골격·build archive와 P01 보고·host 검증 evidence는 생성됐다. 실제 FOTA 실험·분석 자료는 아직 없다.
 

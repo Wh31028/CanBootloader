@@ -5,17 +5,17 @@
 ## 현재 상태
 
 - 폴더/branch: C:/repos/CanBootloader-paper / paper/ksma-2026
-- HEAD: 26cd5c7699257baae51cbb6b94d9d9299528b1c4 (P03 시작 시점; 문서 갱신은 아직 미커밋)
-- 마지막 완료: **P02 DONE** — F407 sender loss/retry/실패 기록과 runner host 확인
-- 진행 중 Task: **P03 IN_PROGRESS** — F407 Custom 1회 smoke/readback 성공; ISO-TP·반복·boot 관측이 남음
-- 다음 실행 Task: **P03만 계속**
+- HEAD: f0c6257568f0624557b38f8a1aade66322b0e80b (P03 Custom checkpoint; 이번 종료 문서/evidence 갱신은 미커밋)
+- 마지막 완료: **P03 DONE** — F407 Custom/ISO-TP hardware smoke와 측정 대조
+- 진행 중 Task: 없음
+- 다음 실행 Task: **P04만**
 - 주 실험 후보: F407. 실제 board boot/smoke는 NOT RUN이며 P03에서 확정.
 - F103: Custom/app PASS, ISO-TP는 Flash 17,224 bytes 초과로 FAIL. 보충 P07 선택 시 처리.
 - 두 ISO-TP submodule: 5593428d95af10dde1e565cebcda16089fc74857로 초기화, 원형 유지.
 - 원고: docs/paper/abstract.md, manuscript.md, references.md 생성. 모든 결과 [결과 미확정].
 - 초기 설정: docs/paper/experiment-config.draft.json (실행 불가 초안).
-- hardware/본 실험/제출: Custom hardware smoke 1회만 실행·성공, ISO-TP와 P04 본 실험·제출은 미실행. 공식 양식·저자·트랙 미확정.
-- commit/push/merge/reset/외부 제출·연락: 미실행.
+- hardware/본 실험/제출: P03 hardware smoke는 완료, P04 본 실험·제출은 미실행. 공식 양식·저자·트랙 미확정.
+- commit/push/merge/reset/외부 제출·연락: P03 Custom checkpoint commit은 존재하지만 push/merge/외부 제출·연락은 미실행.
 - 원본 main 및 TW-03: 이번 작업 범위 밖, 변경하지 않음.
 
 ## 변경과 evidence
@@ -60,7 +60,23 @@ P02는 `p02-frame-omission-v1`로 Custom DATA와 ISO-TP CF만 software omission 
 
 ## P03 진행 기록
 
-**2026-10-07 종료 갱신:** P03은 **IN_PROGRESS**다. F407 Custom의 500 kbit/s loss 0% hardware smoke 1회가 transaction `OK` 및 F407 flash readback exact match까지 성공했다. ISO-TP hardware smoke, 양 방식 각 5회 반복, hardware omission/timeout, application 실제 boot 관측은 **NOT RUN**이다. F103, `main` TW-03 및 P04 240회는 시작하지 않았다.
+**2026-10-07 최종 종료 갱신:** P03은 **DONE**이다. F407 Custom/ISO-TP의 500 kbit/s loss 0% baseline 각 5회, 양 방식의 software omission recovery, ISO-TP bounded timeout과 FOTA recovery/readback을 완료했다. F103, `main` TW-03 및 P04 240회는 시작하지 않았다.
+
+ISO-TP bootloader `7f9412a4…647ae5eb`는 사용자 허가 뒤 `0x08000000`에 sector 0--2만 erase/program/verify했고 mass erase는 하지 않았다. timeout `isotp-timeout-01`은 application sector 4 erase 뒤 의도대로 `FAIL_DATA_RETRY` (4.553979 s)로 끝났다. post-flash target 무응답인 recovery-01/02는 `FAIL_START`로 보존했다. CAN entry trigger `0x200#DEAD` 뒤 올바른 raw sender를 쓴 `isotp-recovery-after-timeout-06`은 **OK**, 12.111229 s였다. ST-LINK read-only dump `reports/artifacts/P03-20261007/f407-app-after-isotp-timeout-recovery.bin`은 65,536 B와 SHA-256 `1badd29c53120916c2f2b0f2e773c6af953960bedeb1c199b66021096b9870e1`가 approved application과 정확히 일치했다. 종료 시 BBB source/run 전체를 `reports/artifacts/P03-20261007/bbb-p03-f407-500k-prep-20261007-sync2/`에 별도 동기화했다.
+
+### 다음 창의 BBB 자동 접속·CAN reset
+
+처음 보는 사람을 위한 전체 접속ㆍCAN resetㆍ기록 보존 절차는 [F407ㆍBBB 장비 운영 안내](hardware-operations.md)를 먼저 따른다.
+
+P03 전용 key `C:\\Users\\wh310\\.ssh\\canboot_p03_agent_ed25519`를 사용하면 `debian@192.168.7.2`에 passwordless SSH가 된다. BBB의 `/etc/sudoers.d/canboot-can0`은 `visudo -cf`에서 parsed OK이고 다음 두 `ip` 명령만 `NOPASSWD`로 제한했다. 다음 창에서도 먼저 `sudo -n`을 붙여 이 정확한 500 kbit/s reset을 실행할 수 있다. P04 실행 자체는 이 기록만으로 허가되지 않으며, P04의 별도 scope/허가를 먼저 확인한다.
+
+```bash
+sudo -n /bin/ip link set can0 down
+sudo -n /bin/ip link set can0 up type can bitrate 500000 sample-point 0.875
+ip -details link show can0
+```
+
+2026-10-07에 위 명령을 SSH로 실제 실행했고, 결과는 `UP, LOWER_UP, ERROR-ACTIVE`, 500,000 bit/s, sample point 0.875, tx/rx error 0/0이었다.
 
 대상은 STM32F4DISCOVERY/ST-LINK SN `066BFF3332584B3043252734` (V2J46M31, Device ID `0x413`)이며, BBB는 `debian@192.168.7.2` (beaglebone, Linux 4.19.94-ti-r42)다. 최종 can0은 500,000 bit/s, sample point 0.833, ERROR-ACTIVE, tx/rx error 0/0이었다. BBB clock은 unsynchronized 2026-08-10이므로 raw CSV timestamp는 신뢰하지 말고 monotonic elapsed만 사용한다.
 
