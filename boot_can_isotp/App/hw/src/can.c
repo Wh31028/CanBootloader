@@ -121,9 +121,18 @@ bool canMsgWrite(uint32_t id, uint8_t *p_data, uint8_t len)
   if (!is_init)
     return false;
 
-  // FOTA에서는 주로 Extended ID (0x100 등)를 사용한다고 가정
-  tx_header.ExtId              = id;
-  tx_header.IDE                = CAN_ID_EXT;
+  // FOTA command/response IDs (0x7E0/0x7E8) are 11-bit standard IDs.
+  // Preserve extended-ID support only for callers that pass an ID above 0x7FF.
+  if (id <= 0x7FFU)
+  {
+    tx_header.StdId = id;
+    tx_header.IDE   = CAN_ID_STD;
+  }
+  else
+  {
+    tx_header.ExtId = id;
+    tx_header.IDE   = CAN_ID_EXT;
+  }
   tx_header.RTR                = CAN_RTR_DATA;
   tx_header.DLC                = len;
   tx_header.TransmitGlobalTime = DISABLE;

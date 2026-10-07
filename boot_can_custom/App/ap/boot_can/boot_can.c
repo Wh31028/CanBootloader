@@ -119,8 +119,16 @@ static void bootProcessData(can_msg_t *msg, uint8_t seq)
   uint32_t offset     = seq * 7;
   uint8_t payload_len = msg->dlc - 1;
 
-  if (offset + payload_len <= BOOT_BUF_SIZE)
+  // The final CAN frame of a 256-byte block starts at offset 252.  Some
+  // SocketCAN senders preserve padded DLC=8, so copy only the four bytes
+  // that fit rather than discarding that final fragment altogether.
+  if (offset < BOOT_BUF_SIZE)
   {
+    uint32_t remaining = BOOT_BUF_SIZE - offset;
+    if (payload_len > remaining)
+    {
+      payload_len = remaining;
+    }
     memcpy(&boot_buf[offset], &msg->data[1], payload_len);
   }
 

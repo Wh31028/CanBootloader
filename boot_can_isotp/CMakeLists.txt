@@ -86,8 +86,13 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
 target_compile_options(${CMAKE_PROJECT_NAME}  PRIVATE
   -Wno-expansion-to-defined
-  #-Os  #최적화
-  -O0 #디버깅용
+  -Os  # Optimize for size; match the Custom bootloader comparison build.
+  -ffunction-sections
+  -fdata-sections
+)
+
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+  -Wl,--gc-sections
 )
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} 
   POST_BUILD
@@ -99,4 +104,4 @@ add_custom_command(TARGET ${CMAKE_PROJECT_NAME}
   POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} ARGS -O ihex ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.hex
   COMMENT "Invoking: Make Hex"
-  )    
+  )
