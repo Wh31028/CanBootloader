@@ -5,18 +5,32 @@
 ## 현재 상태
 
 - 폴더/branch: C:/repos/CanBootloader-paper / paper/ksma-2026
-- HEAD: 3a5e599b81f5f6e0c1f5d596616113b8d230531c (P04 종료 문서/evidence 갱신은 미커밋)
-- 마지막 완료: **P03 DONE** — F407 Custom/ISO-TP hardware smoke와 측정 대조
+- HEAD: c1d1e21c31c59eb1c436a7b6f587bcbba6e59a5e (P05 종료 문서·분석 산출물은 미커밋)
+- 마지막 완료: **P05 DONE (내용 초안)** — ISO-TP 120/120 + terminal-frame probe 보정 Custom 120/120 재분석
 - 진행 중 Task: 없음
-- 다음 실행 Task: **P05만**
+- 다음 실행 Task: **P06만**
 - 주 실험 후보: F407. P03 hardware smoke와 readback은 완료했으며, P04의 live 상태 재확인도 PASS다.
 - F103: Custom/app PASS, ISO-TP는 Flash 17,224 bytes 초과로 FAIL. 보충 P07 선택 시 처리.
 - 두 ISO-TP submodule: 5593428d95af10dde1e565cebcda16089fc74857로 초기화, 원형 유지.
-- 원고: docs/paper/abstract.md, manuscript.md, references.md 생성. 모든 결과 [결과 미확정].
+- 원고: docs/paper/abstract.md는 P05 검증 수치를 반영한 내용 초안이며, manuscript.md/references.md는 다음 P06에서 연결한다. 공식 양식·저자·제출 트랙은 미확정이다.
 - 초기 설정: docs/paper/experiment-config.draft.json (실행 불가 초안).
-- hardware/본 실험/제출: P03 hardware smoke는 완료. P04는 DONE: ISO-TP `isotp-120-entry-v1` 120/120 OK, Custom `custom-120-entry-v2` 110 OK/10 FAIL_DATA_TIMEOUT이며 두 manifest는 각각 120 EXITED다. entry `0x200#DEAD`와 3.0 s 대기(측정 제외)를 sender에 추가했다. 초기 runner/dependency/CAN-unresponsive 실패 artifact도 삭제하지 않았다. raw evidence는 `reports/artifacts/P04-20261009/bbb-p04-f407-500k-20261009/`에 동기화했다. 공식 양식·저자·트랙 미확정.
+- hardware/본 실험/제출: P03 hardware smoke는 완료. P04 유효 dataset은 ISO-TP `isotp-120-entry-v1` 120/120 OK와 terminal-frame probe 보정 Custom `custom-120-terminal-probe-v1` 120/120 OK다. entry `0x200#DEAD`와 3.0 s 대기(측정 제외)는 유지했다. post-run application readback SHA-256도 approved image와 일치한다. 보정 전 Custom 110 OK/10 FAIL_DATA_TIMEOUT 및 초기 runner/dependency/CAN-unresponsive artifact는 삭제하지 않고 별도 실패 기록으로 보존한다.
 - commit/push/merge/reset/외부 제출·연락: P03 Custom checkpoint commit은 존재하지만 push/merge/외부 제출·연락은 미실행.
 - 원본 main 및 TW-03: 이번 작업 범위 밖, 변경하지 않음.
+
+## P05 완료 기록
+
+- 유효 입력은 오직 `reports/artifacts/P04-20261009/bbb-p04-f407-500k-20261009/isotp-120-entry-v1` 및 `custom-120-entry-v2`다. 초기 runner/dependency/CAN 무응답 artifact와 `custom-120-entry-v1`은 삭제하지 않았고, 유효 240 trial에 합치지 않았다.
+- `python experiments/ksma-2026/analysis/p05_analyze.py --input-root docs/paper-plan/reports/artifacts/P04-20261009/bbb-p04-f407-500k-20261009 --output experiments/ksma-2026/analysis/p05-20261009`은 PASS다. CSV/JSONL/manifest 240 trial, schema/ID/planned config/hash/exit-status 대응을 검증했다. derived summary CSV, validation JSON, SVG 세 그림을 생성하며 raw evidence는 수정하지 않는다.
+- ISO-TP는 120/120 OK, Custom은 110 OK/10 FAIL_DATA_TIMEOUT이다. 성공 조건부 시간과 실패율을 분리했다. Custom timeout elapsed는 성공 시간으로 대체하거나 시간 평균에 포함하지 않았다. entry `0x200#DEAD` 뒤 3.0 s 대기는 transaction 시간에서 제외된 상태를 유지했다.
+- P05 report와 abstract 내용 초안을 갱신했다. 공식 1페이지 양식·저자·소속·트랙은 아직 없으므로 제출본이나 양식 검증 PASS가 아니다. P05에서 build/hardware 재실행은 NOT RUN이다.
+
+## P04 terminal-frame probe 보정 기록
+
+- 원본 Custom 10 `FAIL_DATA_TIMEOUT`은 전부 initial `frame_index=36` 누락이고, 성공 110건에는 이 누락이 없었다. target은 마지막 frame 수신 뒤에만 bitmap NACK를 보내며, P04 `fota_sender_p02.py`는 무응답 때 즉시 실패했던 것이 원인이다.
+- `can-fota-BBB/fota_sender_p02.py`는 마지막 frame을 최대 4회 probe하고 기존 loss 모델·deadline을 유지하도록 수정했다. 새 sender SHA-256은 `620ffba37e818282beeac26a1722c79c02794310575ad9c3067df17d6d0b46b1`이다. `test_p02_host.py`에 terminal probe recovery와 bounded timeout test를 추가했고 `python can-fota-BBB/test_p02_host.py`, `python -m py_compile ...`, `git diff --check`는 PASS다.
+- 새 config/run script는 `experiments/ksma-2026/make_p04_custom_terminal_probe_config.py`, `start_p04_custom_terminal_probe.sh`다. 새 run ID는 `custom-120-terminal-probe-v1`이며 원본 run directory를 덮어쓰지 않는다. firmware/bootloader hash/address와 500 kbit/s 조건은 기존 P04와 같다.
+- SSH read-only 상태 확인을 두 번 시도했으나 `192.168.7.2:22` timeout이다. 연결 회복 전에는 source/config copy, CAN reset, FOTA를 실행하지 않는다. 연결 후 현재 `can0`, firmware/bootloader hash, 새 run directory 부재를 다시 확인하고, 새 source/config를 BBB에 복사한 뒤 120회 실행한다.
 
 ## 변경과 evidence
 
@@ -84,7 +98,7 @@ CAN trace로 Custom response numeric `0x101`이 extended frame으로 나가 P01 
 
 BBB `custom-smoke-05`는 `OK`, elapsed 8.873758 s, attempts/socket success 9474/9474, errors/drops/retransmit 0, protocol RX 258, invalid RX 0이다. END CRC ACK 및 JUMP ACK trace는 `101#0000`; boot 상태는 `JUMP_SENT_NOT_VERIFIED`다. ST-LINK read-only dump `reports/artifacts/P03-20261007/f407-app-after-custom-smoke-05.bin`은 application과 SHA-256 일치하고 byte-for-byte first difference가 -1이다. 앞선 smoke-01~04 실패와 smoke-04 mismatching dump도 P03 보고에 보존했다.
 
-다음 대화는 P04만: 먼저 status/HEAD/submodule 및 미커밋 변경을 보존한다. BBB `can0`은 500 kbit/s/ERROR-ACTIVE로 확인됐으므로, 현재 F407/ST-LINK/current image/복구 수단, CAN 배선·종단, exact artifact hash/address/erase 범위 및 사용자 P04 FOTA 허가를 현장 기준으로 재대조한다. 모든 gate가 충족되기 전에는 FOTA를 실행하지 않는다.
+다음 대화는 P04만: 먼저 status/HEAD/submodule 및 미커밋 변경을 보존한다. BBB SSH가 회복했는지 읽기 전용으로 확인하고, `can0`/현재 firmware·bootloader hash/new run directory를 대조한다. `fota_sender_p02.py` SHA-256 `620ffba3…d0b46b1`와 새 config를 BBB에 복사한 뒤 `custom-120-terminal-probe-v1`만 실행한다. 원본 P04 run은 절대 덮어쓰지 않는다. 완료 후 raw CSV/JSONL/manifest를 동기화하고 P05 분석을 재생성한다. F103, main TW-03, 외부 제출·연락은 시작하지 않는다.
 
 ### P03 초기 snapshot (보존용)
 
@@ -115,12 +129,11 @@ P03는 CubeMX의 500 kbit/s 설정(prescaler 6)을 Custom/ISO-TP/application에 
 ```text
 C:\repos\CanBootloader-paper의 paper/ksma-2026에서 진행해줘.
 AGENTS.md와 docs/paper-plan/README.md, SESSION_HANDOFF.md,
-tasks.md의 P05, codex-session-guide.md, reports/P00.md~P04.md를 읽어라.
-이번 대화에서는 P05만 수행해줘. 먼저 git status, HEAD, submodule 상태를 확인하고
-기존 미커밋 수정과 P00~P03 evidence 및 예비 CSV를 보존해줘.
-사용자가 제공한 F407 board 모델/ID·현재 image·복구 수단, BBB 접속/OS/kernel/can0 상태,
-CAN 배선·종단, ST-LINK, exact binary/hash/address/erase 범위별 flashing 허가를 대조해줘.
-P04 raw artifact의 240 planned trial과 별도 실패 artifact를 모두 보존하고, 성공 조건부 시간·성공률·재전송량을 재생성해줘.
-F103, main TW-03은 시작하지 마. 종료 전에 P05 report, README 상태,
-SESSION_HANDOFF를 갱신하고 commit/push, 외부 제출·연락은 하지 마.
+tasks.md의 P04, codex-session-guide.md, reports/P00.md~P05.md를 읽어라.
+이번 대화에서는 P04 terminal-frame probe 보정 Custom 재실험만 수행해줘. 먼저 git status, HEAD,
+submodule 상태를 확인하고 기존 미커밋 수정, 예비 CSV, 원본 P04 raw artifact를 보존해줘.
+BBB SSH/can0/current firmware·bootloader hash와 새 run directory 부재를 읽기 전용으로 확인한 뒤,
+새 sender/config를 복사하고 `custom-120-terminal-probe-v1` 120회를 실행해 raw CSV/JSONL/manifest를 보존해줘.
+원본 Custom/ISO-TP run을 덮어쓰거나 결과를 혼합하지 마. 연결 불가면 hardware 실행을 NOT RUN으로 기록하고
+P04 report·README·SESSION_HANDOFF를 갱신해줘. F103, main TW-03, 외부 제출·연락은 하지 마.
 ```

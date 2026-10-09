@@ -6,10 +6,10 @@
 
 1. Codex에서 `C:/repos/CanBootloader-paper`를 작업 폴더로 연다.
 2. [인수인계](SESSION_HANDOFF.md)의 다음 대화 시작 prompt를 붙여 넣는다.
-3. P00~P03은 완료했다. P04는 2026-10-09 `can0`과 F407/ST-LINK/current image safety gate를 통과했고, 240회 본 실험을 진행 중이다. 다음 대화에서도 `P04`만 재개한다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
+3. P00~P05의 분석 내용 초안까지 완료했다. 다음 대화에서는 `P06`만 수행한다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
 4. 다음 대화도 같은 폴더에서 열고, handoff에 지정된 Task만 수행한다.
 
-현재 단계는 **P04 IN_PROGRESS (2026-10-09)**이다. P03에서 F407 Custom/ISO-TP의 500 kbit/s loss 0% smoke 각 5회, hardware omission recovery, ISO-TP bounded failure와 64 KiB FOTA 복구·ST-LINK readback을 완료했다. P04 시작 점검에서 BBB `can0`을 500 kbit/s/ERROR-ACTIVE로 복구하고 F407/ST-LINK/current bootloader·application readback hash를 대조했다. 240회 본 실험은 새 run-set에서 진행한다. 상세 근거는 [P03 보고](reports/P03.md)와 [P04 보고](reports/P04.md)를 따른다.
+현재 단계는 **P05 DONE (2026-10-09, 내용 초안)**이다. P04 유효 본 dataset은 ISO-TP 120/120 `OK`, Custom 110 `OK`/10 `FAIL_DATA_TIMEOUT`이며 P05가 raw CSV/JSONL/manifest를 검증해 성공 조건부 시간·성공률·재전송 overhead 표와 그림을 재생성했다. 공식 양식·저자·제출은 미완료다. 상세 근거는 [P04 보고](reports/P04.md)와 [P05 보고](reports/P05.md)를 따른다.
 
 ## 문서 작성 원칙
 
@@ -68,8 +68,8 @@ TW-03 전체는 보류하지만 실험 sender의 bounded retry/deadline, malform
 | P01 | 시간·frame 집계 기준 통일 | 10/5~6 | P00 | DONE |
 | P02 | loss/retry/실패 기록·runner 정리 | 10/6~7 | P01 | DONE |
 | P03 | hardware smoke와 측정 검증 | 10/7~8 | P02 | DONE — 양 방식 5회 baseline, recovery/timeout, boot/readback 기록 |
-| P04 | 주 MCU의 240회 핵심 실험 | 10/8~10 | P03 | DONE — ISO-TP 120/120 OK, Custom 110 OK/10 FAIL_DATA_TIMEOUT; raw evidence 보존 |
-| P05 | 통계·그림·1페이지 요약문 | 10/11~12 | P04 | TODO |
+| P04 | 주 MCU의 240회 핵심 실험 | 10/8~10 | P03 | DONE — ISO-TP 120/120 OK + terminal-frame probe 보정 Custom 120/120 OK; 원본 실패 artifact 보존 |
+| P05 | 통계·그림·1페이지 요약문 | 10/11~12 | P04 | DONE — 보정 240 trial 재분석 내용 초안; 공식 양식·저자 정보는 외부 blocker |
 | P06 | 2~3페이지 전문 초안 | 10/12~15 | P05 | TODO |
 | P07 | F103 등 보충 실험, 필요 시만 | 10/17~22 | P06 | TODO |
 | P08 | 최종 원고·근거 검토 | 10/23~25, 심사 후 재개 | P06; P07은 선택 | TODO |

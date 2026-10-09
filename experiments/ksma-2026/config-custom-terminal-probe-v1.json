@@ -1,0 +1,731 @@
+{
+  "schema": "p04-f407-500k-terminal-probe-v1",
+  "firmware_path": "/home/debian/p04-f407-500k-20261009/boot_can_fw-65536-ff-correct.bin",
+  "firmware_sha256": "1badd29c53120916c2f2b0f2e773c6af953960bedeb1c199b66021096b9870e1",
+  "bootloader_sha256": "280410bf713630b66f16f233989486de60387a648cfa9b1ae6b1a201826e9391",
+  "host_source_fingerprint": "fota_sender_p02=620ffba37e818282beeac26a1722c79c02794310575ad9c3067df17d6d0b46b1;fota_p01=d7a01c04e18237eac9d3008fdc86dc4984e9e02e8805f0bfb7a94dbbba3b0e82;fota_p02=7e8f53322b01e967ac101518cba86adc1afb7c6cade2c897b298de462f083d0a;custom=a67eb727db49e1c1855e23183c3f16308ceb838b67037f61d795b2778a2b1628",
+  "runner_timeout_sec": 140,
+  "max_custom_probe_attempts": 4,
+  "planned_trials": [
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r01",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091001
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r02",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091002
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r03",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091003
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r04",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091004
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r05",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091005
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r06",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091006
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r07",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091007
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r08",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091008
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r09",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091009
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r10",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091010
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r11",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091011
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r12",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091012
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r13",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091013
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r14",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091014
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r15",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091015
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r16",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091016
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r17",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091017
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r18",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091018
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r19",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091019
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r20",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091020
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r21",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091021
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r22",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091022
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r23",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091023
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r24",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091024
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r25",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091025
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r26",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091026
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r27",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091027
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r28",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091028
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r29",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091029
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0000-r30",
+      "protocol": "Custom",
+      "loss_rate": 0.0,
+      "seed": 202610091030
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r01",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091031
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r02",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091032
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r03",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091033
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r04",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091034
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r05",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091035
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r06",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091036
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r07",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091037
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r08",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091038
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r09",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091039
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r10",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091040
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r11",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091041
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r12",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091042
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r13",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091043
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r14",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091044
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r15",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091045
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r16",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091046
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r17",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091047
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r18",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091048
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r19",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091049
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r20",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091050
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r21",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091051
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r22",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091052
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r23",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091053
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r24",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091054
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r25",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091055
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r26",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091056
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r27",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091057
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r28",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091058
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r29",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091059
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0100-r30",
+      "protocol": "Custom",
+      "loss_rate": 0.0001,
+      "seed": 202610091060
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r01",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091061
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r02",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091062
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r03",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091063
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r04",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091064
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r05",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091065
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r06",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091066
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r07",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091067
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r08",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091068
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r09",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091069
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r10",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091070
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r11",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091071
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r12",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091072
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r13",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091073
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r14",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091074
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r15",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091075
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r16",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091076
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r17",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091077
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r18",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091078
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r19",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091079
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r20",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091080
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r21",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091081
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r22",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091082
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r23",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091083
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r24",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091084
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r25",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091085
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r26",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091086
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r27",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091087
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r28",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091088
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r29",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091089
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l0500-r30",
+      "protocol": "Custom",
+      "loss_rate": 0.0005,
+      "seed": 202610091090
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r01",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091091
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r02",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091092
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r03",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091093
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r04",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091094
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r05",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091095
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r06",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091096
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r07",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091097
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r08",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091098
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r09",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091099
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r10",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091100
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r11",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091101
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r12",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091102
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r13",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091103
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r14",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091104
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r15",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091105
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r16",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091106
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r17",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091107
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r18",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091108
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r19",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091109
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r20",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091110
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r21",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091111
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r22",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091112
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r23",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091113
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r24",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091114
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r25",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091115
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r26",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091116
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r27",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091117
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r28",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091118
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r29",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091119
+    },
+    {
+      "attempt_id": "p04-terminal-probe-v1-custom-l1000-r30",
+      "protocol": "Custom",
+      "loss_rate": 0.001,
+      "seed": 202610091120
+    }
+  ]
+}

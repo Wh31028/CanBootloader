@@ -46,6 +46,13 @@ def custom(bus,fw,m,loss,deadline,a):
    drop=loss.drop('custom_data',block,index)
    if not tx(bus,CUSTOM_CMD,[seq]+data,m,deadline,dropped=drop) and not drop:return 'FAIL_ENOBUFS',start
   reply=custom_rx(bus,m,a.data_timeout)
+  # The target emits a bitmap NACK only after it sees the final DATA frame.
+  # Probe that frame again if it was omitted, but keep recovery finite.
+  probes=0
+  while not reply and probes<a.max_custom_probe_attempts:
+   seq,data=parts[-1];drop=loss.drop('custom_data',block,len(parts)-1,True)
+   if not tx(bus,CUSTOM_CMD,[seq]+data,m,deadline,dropped=drop,retransmit=True) and not drop:return 'FAIL_ENOBUFS',start
+   probes+=1;reply=custom_rx(bus,m,a.data_timeout)
   if reply==(0,0):continue
   if not reply:return 'FAIL_DATA_TIMEOUT',start
   if reply[0]!=1:return 'FAIL_TARGET' if reply[0]==2 else 'FAIL_DATA_RESPONSE',start
@@ -83,8 +90,8 @@ def iso(bus,fw,m,loss,deadline,a):
  crc=zlib.crc32(fw)&0xffffffff;tx(bus,ISO_CMD,[5,0x30]+list(crc.to_bytes(4,'little')),m,deadline);ack=iso_rx(bus,m,0x30,a.end_timeout)
  return ('OK' if ack and ack[1]==0 else 'FAIL_END_CRC'),start
 def main(protocol):
- p=argparse.ArgumentParser();p.add_argument('--firmware',required=True);p.add_argument('--run-dir',required=True);p.add_argument('--attempt-id',required=True);p.add_argument('--loss',type=float,required=True);p.add_argument('--seed',type=int,required=True);p.add_argument('--transaction-timeout',type=float,default=120);p.add_argument('--max-block-attempts',type=int,default=4);p.add_argument('--can-interface',default='can0');p.add_argument('--entry-wait-sec',type=float,default=3.0);a=p.parse_args()
- if not 0<=a.loss<=1 or a.transaction_timeout<=0 or a.max_block_attempts<1 or a.entry_wait_sec<0:raise SystemExit('invalid bounded configuration')
+ p=argparse.ArgumentParser();p.add_argument('--firmware',required=True);p.add_argument('--run-dir',required=True);p.add_argument('--attempt-id',required=True);p.add_argument('--loss',type=float,required=True);p.add_argument('--seed',type=int,required=True);p.add_argument('--transaction-timeout',type=float,default=120);p.add_argument('--max-block-attempts',type=int,default=4);p.add_argument('--max-custom-probe-attempts',type=int,default=4);p.add_argument('--can-interface',default='can0');p.add_argument('--entry-wait-sec',type=float,default=3.0);a=p.parse_args()
+ if not 0<=a.loss<=1 or a.transaction_timeout<=0 or a.max_block_attempts<1 or a.max_custom_probe_attempts<1 or a.entry_wait_sec<0:raise SystemExit('invalid bounded configuration')
  a.start_timeout,a.data_timeout,a.end_timeout,a.fc_timeout=15,.15,3,1;fw=open(a.firmware,'rb').read();m=Metrics();loss=LossModel(a.seed,a.loss);begun=None;status,stage,boot='FAIL_SOCKET','SOCKET','NOT_ATTEMPTED'
  try:
   bus=socket.socket(socket.AF_CAN,socket.SOCK_RAW,socket.CAN_RAW);bus.bind((a.can_interface,));stage='ENTRY';enter_bootloader(bus,a);begun=time.monotonic();stage='START';status,start=(custom if protocol=='Custom' else iso)(bus,fw,m,loss,begun+a.transaction_timeout,a);stage='END' if status=='OK' else status[5:]
