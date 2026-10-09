@@ -1,20 +1,20 @@
 # 논문 작업 인수인계
 
-최종 갱신: 2026-10-07. 다음 대화는 이 파일을 먼저 읽는다.
+최종 갱신: 2026-10-09. 다음 대화는 이 파일을 먼저 읽는다.
 
 ## 현재 상태
 
 - 폴더/branch: C:/repos/CanBootloader-paper / paper/ksma-2026
-- HEAD: f0c6257568f0624557b38f8a1aade66322b0e80b (P03 Custom checkpoint; 이번 종료 문서/evidence 갱신은 미커밋)
+- HEAD: 3a5e599b81f5f6e0c1f5d596616113b8d230531c (P04 종료 문서/evidence 갱신은 미커밋)
 - 마지막 완료: **P03 DONE** — F407 Custom/ISO-TP hardware smoke와 측정 대조
 - 진행 중 Task: 없음
-- 다음 실행 Task: **P04만**
-- 주 실험 후보: F407. 실제 board boot/smoke는 NOT RUN이며 P03에서 확정.
+- 다음 실행 Task: **P05만**
+- 주 실험 후보: F407. P03 hardware smoke와 readback은 완료했으며, P04의 live 상태 재확인도 PASS다.
 - F103: Custom/app PASS, ISO-TP는 Flash 17,224 bytes 초과로 FAIL. 보충 P07 선택 시 처리.
 - 두 ISO-TP submodule: 5593428d95af10dde1e565cebcda16089fc74857로 초기화, 원형 유지.
 - 원고: docs/paper/abstract.md, manuscript.md, references.md 생성. 모든 결과 [결과 미확정].
 - 초기 설정: docs/paper/experiment-config.draft.json (실행 불가 초안).
-- hardware/본 실험/제출: P03 hardware smoke는 완료, P04 본 실험·제출은 미실행. 공식 양식·저자·트랙 미확정.
+- hardware/본 실험/제출: P03 hardware smoke는 완료. P04는 DONE: ISO-TP `isotp-120-entry-v1` 120/120 OK, Custom `custom-120-entry-v2` 110 OK/10 FAIL_DATA_TIMEOUT이며 두 manifest는 각각 120 EXITED다. entry `0x200#DEAD`와 3.0 s 대기(측정 제외)를 sender에 추가했다. 초기 runner/dependency/CAN-unresponsive 실패 artifact도 삭제하지 않았다. raw evidence는 `reports/artifacts/P04-20261009/bbb-p04-f407-500k-20261009/`에 동기화했다. 공식 양식·저자·트랙 미확정.
 - commit/push/merge/reset/외부 제출·연락: P03 Custom checkpoint commit은 존재하지만 push/merge/외부 제출·연락은 미실행.
 - 원본 main 및 TW-03: 이번 작업 범위 밖, 변경하지 않음.
 
@@ -84,7 +84,7 @@ CAN trace로 Custom response numeric `0x101`이 extended frame으로 나가 P01 
 
 BBB `custom-smoke-05`는 `OK`, elapsed 8.873758 s, attempts/socket success 9474/9474, errors/drops/retransmit 0, protocol RX 258, invalid RX 0이다. END CRC ACK 및 JUMP ACK trace는 `101#0000`; boot 상태는 `JUMP_SENT_NOT_VERIFIED`다. ST-LINK read-only dump `reports/artifacts/P03-20261007/f407-app-after-custom-smoke-05.bin`은 application과 SHA-256 일치하고 byte-for-byte first difference가 -1이다. 앞선 smoke-01~04 실패와 smoke-04 mismatching dump도 P03 보고에 보존했다.
 
-다음 대화는 P03만: 먼저 status/HEAD/submodule 및 미커밋 변경을 보존하고, ISO-TP 실행 전 최종 ISO artifact hash와 `0x08000000` sector 0--2 erase/program/verify의 새 명시 허가를 받는다. ISO-TP smoke/trace와 이후 남은 P03 조건을 실행하되 P04를 시작하지 않는다.
+다음 대화는 P04만: 먼저 status/HEAD/submodule 및 미커밋 변경을 보존한다. BBB `can0`은 500 kbit/s/ERROR-ACTIVE로 확인됐으므로, 현재 F407/ST-LINK/current image/복구 수단, CAN 배선·종단, exact artifact hash/address/erase 범위 및 사용자 P04 FOTA 허가를 현장 기준으로 재대조한다. 모든 gate가 충족되기 전에는 FOTA를 실행하지 않는다.
 
 ### P03 초기 snapshot (보존용)
 
@@ -115,13 +115,12 @@ P03는 CubeMX의 500 kbit/s 설정(prescaler 6)을 Custom/ISO-TP/application에 
 ```text
 C:\repos\CanBootloader-paper의 paper/ksma-2026에서 진행해줘.
 AGENTS.md와 docs/paper-plan/README.md, SESSION_HANDOFF.md,
-tasks.md의 P03, codex-session-guide.md, reports/P00.md~P03.md를 읽어라.
-이번 대화에서는 IN_PROGRESS인 P03만 재개해줘. 먼저 git status, HEAD, submodule 상태를 확인하고
+tasks.md의 P05, codex-session-guide.md, reports/P00.md~P04.md를 읽어라.
+이번 대화에서는 P05만 수행해줘. 먼저 git status, HEAD, submodule 상태를 확인하고
 기존 미커밋 수정과 P00~P03 evidence 및 예비 CSV를 보존해줘.
 사용자가 제공한 F407 board 모델/ID·현재 image·복구 수단, BBB 접속/OS/kernel/can0 상태,
 CAN 배선·종단, ST-LINK, exact binary/hash/address/erase 범위별 flashing 허가를 대조해줘.
-누락되거나 허가되지 않은 항목이 있으면 hardware를 실행하지 말고 P03 BLOCKED를 유지해줘.
-모두 충족될 때만 새 run ID에 artifact를 고정하고 제한된 hardware smoke와 측정 대조를 수행해줘.
-F103, main TW-03, P04의 240회 실험은 시작하지 마. 종료 전에 P03 report, README 상태,
+P04 raw artifact의 240 planned trial과 별도 실패 artifact를 모두 보존하고, 성공 조건부 시간·성공률·재전송량을 재생성해줘.
+F103, main TW-03은 시작하지 마. 종료 전에 P05 report, README 상태,
 SESSION_HANDOFF를 갱신하고 commit/push, 외부 제출·연락은 하지 마.
 ```

@@ -4,6 +4,7 @@ from fota_p01 import Metrics, standard_data_id
 from fota_p02 import LossModel, DeadlineExceeded, append_jsonl, append_result, require_deadline, sha256_file, utc_now
 
 CUSTOM_CMD,CUSTOM_RESP,ISO_CMD,ISO_RESP=0x100,0x101,0x7e0,0x7e8
+FOTA_ENTRY_CMD=0x200
 def frame(ident,payload):
  data=bytes(payload);return struct.pack('<IB3x8s',ident,len(data),data+b'\0'*(8-len(data)))
 def recv(bus,timeout):
@@ -11,6 +12,14 @@ def recv(bus,timeout):
  try:return bus.recv(16)
  except (socket.timeout,BlockingIOError):return None
 def tx(bus,ident,payload,m,deadline,**kw):return m.attempt_send(bus,frame(ident,payload),deadline=deadline,**kw)
+def enter_bootloader(bus,a):
+ bus.send(frame(FOTA_ENTRY_CMD,[0xde,0xad]))
+ time.sleep(a.entry_wait_sec)
+ bus.setblocking(False)
+ try:
+  while bus.recv(16):pass
+ except (BlockingIOError,OSError):pass
+ finally:bus.setblocking(True)
 def custom_rx(bus,m,t):
  raw=recv(bus,t)
  if not raw:return None
@@ -74,16 +83,17 @@ def iso(bus,fw,m,loss,deadline,a):
  crc=zlib.crc32(fw)&0xffffffff;tx(bus,ISO_CMD,[5,0x30]+list(crc.to_bytes(4,'little')),m,deadline);ack=iso_rx(bus,m,0x30,a.end_timeout)
  return ('OK' if ack and ack[1]==0 else 'FAIL_END_CRC'),start
 def main(protocol):
- p=argparse.ArgumentParser();p.add_argument('--firmware',required=True);p.add_argument('--run-dir',required=True);p.add_argument('--attempt-id',required=True);p.add_argument('--loss',type=float,required=True);p.add_argument('--seed',type=int,required=True);p.add_argument('--transaction-timeout',type=float,default=120);p.add_argument('--max-block-attempts',type=int,default=4);p.add_argument('--can-interface',default='can0');a=p.parse_args()
- if not 0<=a.loss<=1 or a.transaction_timeout<=0 or a.max_block_attempts<1:raise SystemExit('invalid bounded configuration')
- a.start_timeout,a.data_timeout,a.end_timeout,a.fc_timeout=15,.15,3,1;fw=open(a.firmware,'rb').read();m=Metrics();loss=LossModel(a.seed,a.loss);begun=time.monotonic();status,stage,boot='FAIL_SOCKET','SOCKET','NOT_ATTEMPTED'
+ p=argparse.ArgumentParser();p.add_argument('--firmware',required=True);p.add_argument('--run-dir',required=True);p.add_argument('--attempt-id',required=True);p.add_argument('--loss',type=float,required=True);p.add_argument('--seed',type=int,required=True);p.add_argument('--transaction-timeout',type=float,default=120);p.add_argument('--max-block-attempts',type=int,default=4);p.add_argument('--can-interface',default='can0');p.add_argument('--entry-wait-sec',type=float,default=3.0);a=p.parse_args()
+ if not 0<=a.loss<=1 or a.transaction_timeout<=0 or a.max_block_attempts<1 or a.entry_wait_sec<0:raise SystemExit('invalid bounded configuration')
+ a.start_timeout,a.data_timeout,a.end_timeout,a.fc_timeout=15,.15,3,1;fw=open(a.firmware,'rb').read();m=Metrics();loss=LossModel(a.seed,a.loss);begun=None;status,stage,boot='FAIL_SOCKET','SOCKET','NOT_ATTEMPTED'
  try:
-  bus=socket.socket(socket.AF_CAN,socket.SOCK_RAW,socket.CAN_RAW);bus.bind((a.can_interface,));stage='START';status,start=(custom if protocol=='Custom' else iso)(bus,fw,m,loss,begun+a.transaction_timeout,a);stage='END' if status=='OK' else status[5:]
+  bus=socket.socket(socket.AF_CAN,socket.SOCK_RAW,socket.CAN_RAW);bus.bind((a.can_interface,));stage='ENTRY';enter_bootloader(bus,a);begun=time.monotonic();stage='START';status,start=(custom if protocol=='Custom' else iso)(bus,fw,m,loss,begun+a.transaction_timeout,a);stage='END' if status=='OK' else status[5:]
   if status=='OK':
    try:bus.send(frame(CUSTOM_CMD if protocol=='Custom' else ISO_CMD,[0xc0] if protocol=='Custom' else [2,0x40,0]));boot='JUMP_SENT_NOT_VERIFIED'
    except OSError:status,stage='FAIL_JUMP_SEND','JUMP'
  except DeadlineExceeded as e:status,stage='FAIL_TRANSACTION_TIMEOUT',str(e)
  except KeyboardInterrupt:status='INTERRUPTED'
- except OSError:status='FAIL_SOCKET' if stage=='SOCKET' else 'FAIL_SEND'
- row={'attempt_id':a.attempt_id,'timestamp_utc':utc_now(),'protocol':protocol,'loss_rate':a.loss,'seed':a.seed,'firmware_sha256':sha256_file(a.firmware),'transaction_status':status,'boot_status':boot,'failure_stage':stage,'elapsed_sec':f'{time.monotonic()-begun:.6f}','send_attempts':m.send_attempts,'software_drops':m.software_drops,'socket_send_success':m.socket_send_success,'send_errors':m.send_errors,'protocol_rx':m.protocol_rx,'invalid_protocol_rx':m.invalid_protocol_rx,'retransmit_attempts':m.retransmit_attempts,'retransmit_send_success':m.retransmit_send_success,'drop_events_json':loss.events,'note':'overhead denominator: all send_attempts'}
+ except OSError:status='FAIL_SOCKET' if stage=='SOCKET' else ('FAIL_ENTRY_SEND' if stage=='ENTRY' else 'FAIL_SEND')
+ elapsed=0 if begun is None else time.monotonic()-begun
+ row={'attempt_id':a.attempt_id,'timestamp_utc':utc_now(),'protocol':protocol,'loss_rate':a.loss,'seed':a.seed,'firmware_sha256':sha256_file(a.firmware),'transaction_status':status,'boot_status':boot,'failure_stage':stage,'elapsed_sec':f'{elapsed:.6f}','send_attempts':m.send_attempts,'software_drops':m.software_drops,'socket_send_success':m.socket_send_success,'send_errors':m.send_errors,'protocol_rx':m.protocol_rx,'invalid_protocol_rx':m.invalid_protocol_rx,'retransmit_attempts':m.retransmit_attempts,'retransmit_send_success':m.retransmit_send_success,'drop_events_json':loss.events,'note':f'entry 0x200#DEAD, wait {a.entry_wait_sec}s excluded; overhead denominator: all send_attempts'}
  append_result(os.path.join(a.run_dir,'raw.csv'),row);append_jsonl(os.path.join(a.run_dir,'events.jsonl'),row);return status!='OK'
