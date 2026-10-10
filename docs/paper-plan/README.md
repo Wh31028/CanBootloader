@@ -6,10 +6,10 @@
 
 1. Codex에서 `C:/repos/CanBootloader-paper`를 작업 폴더로 연다.
 2. [인수인계](SESSION_HANDOFF.md)의 다음 대화 시작 prompt를 붙여 넣는다.
-3. P06 전문 Markdown 내용 초안까지 완료했다. 다음 권장 대화는 `P08` 문서 검토이며, 선택 과제 P07은 미선택·미실행이다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
+3. P08 문서·근거 검토를 마쳤고, 공식 양식·저자·PDF 검증이 남아 P08은 `IN_PROGRESS`다. 다음 대화도 P08만 이어간다. 선택 과제 P07은 이번 제출 범위에서 보류했다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
 4. 다음 대화도 같은 폴더에서 열고, handoff에 지정된 Task만 수행한다.
 
-현재 단계는 **P06 DONE (2026-10-10, Markdown 내용 초안)**이다. P04 유효 dataset은 `isotp-120-entry-v1` 120/120 `OK`와 `custom-120-terminal-probe-v1` 120/120 `OK`다. 보정 전 `custom-120-entry-v2`의 110 `OK`/10 `FAIL_DATA_TIMEOUT`은 별도 실패 artifact로 보존하며 유효 240건에 합치지 않는다. 전문은 P05 `p05-terminal-probe-v1-20261009`의 summary CSV와 SVG를 사용한다. 공식 양식·저자·PDF 페이지·제출은 미완료다. [P06 보고](reports/P06.md)에 실제 elapsed가 JUMP 송신 호출 뒤 기록되는 측정 한계와 기존 요약문의 후속 문구 정정 항목을 남겼다. 이전 보고서의 보정 전·미실행 snapshot은 당시 이력으로 보존한다.
+현재 단계는 **P08 IN_PROGRESS (2026-10-10, 문서·근거 검토 완료, 최종 양식 검증 대기)**다. P04 유효 dataset은 `isotp-120-entry-v1` 120/120 `OK`와 `custom-120-terminal-probe-v1` 120/120 `OK`다. 보정 전 `custom-120-entry-v2`의 110 `OK`/10 `FAIL_DATA_TIMEOUT`은 별도 실패 artifact로 보존하며 유효 240건에 합치지 않는다. 전문·요약문은 P05 `p05-terminal-probe-v1-20261009`의 summary CSV와 SVG를 사용하고 실제 elapsed의 JUMP 송신 호출 포함 한계를 함께 명시한다. 원시 시간은 보정하지 않았다. 공식 양식·저자·PDF 페이지·교수 검토는 미완료이며 제출 상태는 미확인이다. 실행한 검증·checksum·다음 prompt는 [P08 보고](reports/P08.md)와 [handoff](SESSION_HANDOFF.md)에 있다. 이전 보고서의 보정 전·미실행 snapshot은 당시 이력으로 보존한다.
 
 ## 문서 작성 원칙
 
@@ -26,7 +26,7 @@
 | `C:/repos/CanBootloader-paper`, `paper/ksma-2026` | 측정 수정, 재실험, 논문 문서 |
 | `C:/repos/CanBootloader`, `main` | staging 기반 FOTA; TW-03은 학회 작업 이후 재개 |
 
-분기 기준은 생성 당시 로컬 remote-tracking ref다. P06 시작 HEAD는 `555fbb1b0e2bf37735ea483a144909001c4e1aa7`, upstream은 `origin/paper/ksma-2026`이며 로컬이 2 commits ahead였다. 시작 시 staged·미커밋 변경은 없었다. P06에서는 commit/push/merge/reset하지 않았으며 이번 문서 변경은 미커밋 상태로 남는다. 다른 PC나 새 checkout에 자동 전달되지 않으므로 commit/원격 백업은 사용자가 별도로 요청한다.
+분기 기준은 생성 당시 로컬 remote-tracking ref다. P08 시작 HEAD는 `8757dcbf66793497f463ed5e48e2489f9d073699`, upstream은 `origin/paper/ksma-2026`이며 로컬이 3 commits ahead였다. 시작 시 staged·미커밋·untracked 변경은 없었고 P06 문서는 이미 HEAD에 포함돼 있었다. P06 인계의 미커밋 표기는 당시 이력이다. P08에서는 commit/push/merge/reset하지 않으며 이번 문서 변경은 미커밋으로 남긴다. 다른 PC나 새 checkout에 자동 전달되지 않으므로 commit/원격 백업은 사용자가 별도로 요청한다.
 
 ## 연구 범위
 
@@ -36,7 +36,7 @@
 
 - BBB와 STM32, Classical CAN, 동일 보드 내 두 방식의 direct-write 비교.
 - 기존 Python 실험 sender를 기준으로 최소한의 측정/실패 처리 수정.
-- F407이 주 실험 대상이며 P03 smoke와 P04 본 실험, P05 분석을 완료했다. F103은 선택 과제 P07의 보충 검증 후보이며 이번 P06에서는 실행하지 않았다.
+- F407이 주 실험 대상이며 P03 smoke와 P04 본 실험, P05 분석을 완료했다. F103은 선택 과제 P07의 보충 검증 후보이며 P08 문서 검토 범위에서는 보류·미실행이다.
 - F103에만 정상 baseline이 확보되면 주 대상을 F103으로 변경하고 근거를 기록할 수 있다.
 - 두 보드를 반드시 끝내야 요약문을 제출할 수 있는 것은 아니다.
 - power-loss recovery, staging, rollback, signature, 실제 차량 BER, 다중 ECU 신뢰성은 이번 필수 주장에 포함하지 않는다.
@@ -71,8 +71,8 @@ TW-03 전체는 보류하지만 실험 sender의 bounded retry/deadline, malform
 | P04 | 주 MCU의 240회 핵심 실험 | 10/8~10 | P03 | DONE — ISO-TP 120/120 OK + terminal-frame probe 보정 Custom 120/120 OK; 원본 실패 artifact 보존 |
 | P05 | 통계·그림·1페이지 요약문 | 10/11~12 | P04 | DONE — 보정 240 trial 재분석 내용 초안; 공식 양식·저자 정보는 외부 blocker |
 | P06 | 2~3페이지 전문 초안 | 10/12~15 | P05 | DONE — Markdown 내용 초안; 공식 양식·PDF 페이지 검증 NOT RUN |
-| P07 | F103 등 보충 실험, 필요 시만 | 10/17~22 | P06 | TODO |
-| P08 | 최종 원고·근거 검토 | 10/23~25, 심사 후 재개 | P06; P07은 선택 | TODO |
+| P07 | F103 등 보충 실험, 필요 시만 | 10/17~22 | P06 | DEFERRED — 사용자 지정 P08 문서 검토 범위에서 제외; 미실행 |
+| P08 | 최종 원고·근거 검토 | 10/23~25, 심사 후 재개 | P06; P07은 선택 | IN_PROGRESS — 문서·수치·근거 대조 완료; 공식 양식·저자·PDF 검증·교수/심사 의견 대기 |
 
 상세 범위와 완료 조건은 [tasks.md](tasks.md)에 있다. 큰 Task는 P02-a/P02-b처럼 handoff의 세부 작업만 나누고 동일 Task를 다음 대화에서 이어간다. 여러 대화를 동시에 실행하지 않는다.
 
@@ -121,7 +121,7 @@ P00에서 abstract/manuscript 골격을 작성했다. hardware가 일시적으�
 
 기존 계획 문서: 이 README, [Task 상세](tasks.md), [새 대화 안내](codex-session-guide.md), [F407ㆍBBB 장비 운영 안내](hardware-operations.md), [handoff](SESSION_HANDOFF.md), [보고 템플릿](reports/TEMPLATE.md).
 
-P00~P05 보고·build/host/hardware evidence와 분석 자료를 보존하고, P06에서는 전문과 종료 문서만 갱신했다.
+P00~P06 보고·build/host/hardware evidence와 분석 자료를 보존했다. P08에서는 전문·요약문·출처 기록 및 종료 문서만 갱신했다.
 
 - `docs/paper-plan/reports/P00.md` ~ `P08.md`: 작업 근거·검증.
 - `docs/paper/abstract.md`, `docs/paper/manuscript.md`: 저자 검토용 원고.

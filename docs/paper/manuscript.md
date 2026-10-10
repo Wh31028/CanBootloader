@@ -1,6 +1,6 @@
 # CAN 기반 펌웨어 업데이트를 위한 비트맵 선택 재전송 기법의 구현 및 성능 평가
 
-P06 내용 초안 / 2026-10-10 / 2~3페이지 목표. 공식 양식 적용·PDF 페이지 검증: **NOT RUN**.
+P08 문서·근거 검토본 / 2026-10-10 / `p08-doc-review-v1` / 2~3페이지 목표. 공식 양식 적용·PDF 페이지 검증: **NOT RUN**.
 
 [저자·소속·교신저자·제출 트랙 미확정]
 
@@ -38,7 +38,7 @@ flowchart LR
 | 구현 설정 | 양 부트로더 사용자 코드 -Os; 표준 CAN ID Custom 0x100/0x101, ISO-TP 0x7e0/0x7e8 |
 | 누락 확률 p | 0, 0.0001, 0.0005, 0.001 (0, 0.01, 0.05, 0.1%) |
 | 반복·실행 순서 | 방식별 확률당 30회; protocol별 별도 batch, 각 batch에서 확률 오름차순 |
-| 성공 판정 | raw `transaction_status=OK`; END ACK/CRC 확인, 부팅 관측은 별도 |
+| 성공 판정 | raw `transaction_status=OK`; END ACK/CRC 확인과 JUMP 송신 호출 성공, 부팅 관측은 별도 |
 
 유효 입력은 `isotp-120-entry-v1` 120회와 `custom-120-terminal-probe-v1` 120회, 총 240회다. 송신단 source fingerprint와 부트로더·이미지 hash는 각 manifest 및 P05 검증 기록으로 특정한다.[4] 두 batch는 서로 다른 송신단 revision과 seed 집합으로 실행됐다. 기존 예비 CSV, P03 smoke, 보정 전 Custom 및 초기 실행 오류 기록은 이 240회에 합치지 않았다.
 
@@ -93,4 +93,4 @@ P03의 기동 관측·readback 및 P04 종료 후 readback은 개별 검증 근�
 
 ---
 
-작성 메모(제출 본문 제외): 이 문서는 Markdown 내용 초안이다. 공식 양식·저자·트랙·참고문헌 포함 페이지 수 및 교수 검토는 미완료다. [P06 보고](../paper-plan/reports/P06.md)에 재현 검증, 시간 경계 차이, 기존 요약문과의 잔여 문구 차이 및 검토 질문을 기록했다. 성공률 그림은 지면 절약을 위해 본문 수치로 대신하며 [P05 원본 SVG](../../experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/p05-success-rate.svg)를 보존한다.
+작성 메모(제출 본문 제외): 이 문서는 Markdown 내용 검토본이다. 공식 양식·저자·트랙·참고문헌 포함 페이지 수 및 교수 검토는 미완료다. [P06 보고](../paper-plan/reports/P06.md)의 시간 경계 확인을 유지하고, [P08 보고](../paper-plan/reports/P08.md)에 요약문 문구 정합화, 수치·근거 재검증, checksum과 잔여 조건을 기록했다. 성공률 그림은 지면 절약을 위해 본문 수치로 대신하며 [P05 원본 SVG](../../experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/p05-success-rate.svg)를 보존한다.

@@ -1,5 +1,65 @@
 # 논문 작업 인수인계
 
+최종 갱신: 2026-10-10, P08 문서·근거 검토 종료. 이 상단이 현재 지시이며 접힌 P06 및 이전 기록은 실행 지시가 아니다.
+
+## 현재 상태
+
+- 폴더/branch: `C:/repos/CanBootloader-paper` / `paper/ksma-2026`.
+- 시작 HEAD: `8757dcbf66793497f463ed5e48e2489f9d073699`, upstream보다 3 commits ahead, clean. P06 문서는 이미 HEAD에 포함돼 있었다.
+- P08: **IN_PROGRESS**. 문서·근거 대조와 전문·요약문 정합화 완료. 공식 양식·저자·PDF 검증·교수/심사 의견 반영 조건은 미완료다. 외부 제출/채택 상태는 미확인이다.
+- P07: **DEFERRED**, 이번 범위에서 제외·미실행. 다음 Task도 **P08만**이다.
+- 원고 버전: `p08-doc-review-v1`. checksum·검증 명령·결과·발표 핵심 3개는 [P08 보고](reports/P08.md)에 있다.
+- 변경 파일: `docs/paper/{abstract,manuscript,references}.md`, `docs/paper-plan/README.md`, 이 파일, `reports/P08.md`. 미커밋으로 인계한다.
+- 두 ISO-TP submodule은 `5593428d95af10dde1e565cebcda16089fc74857`로 유지했다. P00~P06 보고/evidence, 예비 CSV/PPTX, P04 raw, P05 출력은 보존했다.
+- build·host 기능 시험·hardware 재실행·PDF 검증은 NOT RUN. F103, main TW-03, 외부 제출·연락, commit/push/merge/reset을 하지 않았다. 이번 세션에서 시작한 지속 실행 프로세스는 없고 원격 장비 상태는 조회하지 않았다.
+
+## 유효 입력과 검토 결과
+
+원시 root: `docs/paper-plan/reports/artifacts/P04-20261009/bbb-p04-f407-500k-20261009/`.
+
+| 구분 | run ID / 결과 | 사용 |
+| --- | --- | --- |
+| ISO-TP | `isotp-120-entry-v1`, 120 OK | 유효 입력 |
+| Custom | `custom-120-terminal-probe-v1`, 120 OK | 유효 입력 |
+| 보정 전 Custom | `custom-120-entry-v2`, 110 OK/10 FAIL_DATA_TIMEOUT | 별도 실패 기록; 유효 240건에 합치지 않음 |
+
+분석 기준은 `experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/`의 summary CSV·validation JSON·SVG 3개다. 읽기 전용 재계산에서 240 raw/JSONL/manifest/config, 8 summary 행, SVG 3개가 일치했다. 보정 전 10건은 모두 initial frame_index=36 누락을 포함했다. 새 Custom은 120회 전체 batch이며 실패 10건 대체가 아니다.
+
+전문·요약문은 F407/500 kbit/s/65,536 B/direct-write `[0x08010000,0x08020000)`/sector 4를 함께 명시한다. 실제 elapsed는 protocol 호출 직전→JUMP 송신 호출 뒤이며 END ACK 뒤 처리도 포함한다. entry 뒤 3.0 s는 제외되고 이 경로에 0.5 s 대기는 없다. 원시 시간을 차감하거나 소급 분리하지 않는다. 240건의 boot_status는 모두 `JUMP_SENT_NOT_VERIFIED`다.
+
+P04 보고 아래쪽의 보정 전/NOT RUN 기록, P05 보고의 옛 validation 링크·시간 설명, 분석 script 상단의 보정 전 run 이름은 과거 설명으로 보존했다. 현재 입력은 위 표와 P08 보고의 명시적 run 인자를 따른다.
+
+## 미완료 조건과 다음 작업
+
+- 공식 양식 원본, 제출 트랙, 저자 순서·국문/영문 이름·소속·교신저자, 참고문헌 포함 페이지 계산·마감 시각이 필요하다. 아직 미확정이다.
+- 양식이 확보되면 내용을 적용하고 PDF를 실제 export하여 페이지 수·글꼴·그림/표 가독성을 확인한다. 현재 요약문 1페이지/전문 2~3페이지는 목표이며 PASS가 아니다.
+- 교수 검토와 채택 여부·심사 의견은 미제공이다. 미통보를 채택으로 기록하지 않는다. CAN FOTA 직접 선행연구 확충과 최종 서지 형식도 잔여 검토다.
+- 이후 main TW-03 재개 및 졸업논문 확장은 P08 보고의 후보 목록만 인계한다. 현재 작업으로 실행하지 않는다.
+
+## 다음 대화 시작 prompt
+
+```text
+C:\repos\CanBootloader-paper의 paper/ksma-2026에서 P08만 이어가줘.
+AGENTS.md, docs/paper-plan/README.md, SESSION_HANDOFF.md, tasks.md의 P08,
+codex-session-guide.md, reports/P08.md 및 docs/paper의 전문·요약문·출처 기록을 읽어줘.
+먼저 git status --short --branch, git rev-parse HEAD, git submodule status를 확인하고
+P08 미커밋 문서, P00~P06 evidence, 예비 CSV, P04 raw와 P05 출력을 보존해줘.
+유효 데이터는 isotp-120-entry-v1 + custom-120-terminal-probe-v1의 240 OK뿐이며
+custom-120-entry-v2의 110 OK/10 FAIL_DATA_TIMEOUT은 별도 실패 이력이다.
+P05 p05-terminal-probe-v1-20261009 수치를 유지하고 JUMP 송신 호출을 포함한
+실제 elapsed 한계를 유지해줘. 원시 시간을 보정하지 마.
+제공된 공식 양식·저자/트랙 정보·교수/심사 의견이 있으면 반영하고,
+PDF를 실제 생성한 경우에만 페이지·글꼴·그림 가독성을 검증해줘.
+자료가 없으면 미확정/NOT RUN을 유지하고 P08을 DONE으로 바꾸지 마.
+F103/P07, main TW-03, hardware 재실행, 외부 제출·연락,
+commit/push/merge/reset은 하지 마. 종료 전에 P08 보고·README·handoff를 갱신해줘.
+```
+
+<details>
+<summary>P06 종료 인계 원문 — 당시 이력, 현재 실행 지시가 아님</summary>
+
+# 논문 작업 인수인계
+
 최종 갱신: 2026-10-10, P06 종료. 이 파일 상단이 현재 지시이며 맨 아래 접힌 이전 기록은 이력 보존용이다.
 
 ## 현재 상태
@@ -207,5 +267,7 @@ BBB SSH/can0/current firmware·bootloader hash와 새 run directory 부재를 �
 원본 Custom/ISO-TP run을 덮어쓰거나 결과를 혼합하지 마. 연결 불가면 hardware 실행을 NOT RUN으로 기록하고
 P04 report·README·SESSION_HANDOFF를 갱신해줘. F103, main TW-03, 외부 제출·연락은 하지 마.
 ```
+
+</details>
 
 </details>
