@@ -6,10 +6,10 @@
 
 1. Codex에서 `C:/repos/CanBootloader-paper`를 작업 폴더로 연다.
 2. [인수인계](SESSION_HANDOFF.md)의 다음 대화 시작 prompt를 붙여 넣는다.
-3. P00~P05의 분석 내용 초안까지 완료했다. 다음 대화에서는 `P06`만 수행한다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
+3. P06 전문 Markdown 내용 초안까지 완료했다. 다음 권장 대화는 `P08` 문서 검토이며, 선택 과제 P07은 미선택·미실행이다. 종료 보고와 [인수인계](SESSION_HANDOFF.md)가 저장되면 이전 대화/창을 닫는다.
 4. 다음 대화도 같은 폴더에서 열고, handoff에 지정된 Task만 수행한다.
 
-현재 단계는 **P05 DONE (2026-10-09, 내용 초안)**이다. P04 유효 본 dataset은 ISO-TP 120/120 `OK`, Custom 110 `OK`/10 `FAIL_DATA_TIMEOUT`이며 P05가 raw CSV/JSONL/manifest를 검증해 성공 조건부 시간·성공률·재전송 overhead 표와 그림을 재생성했다. 공식 양식·저자·제출은 미완료다. 상세 근거는 [P04 보고](reports/P04.md)와 [P05 보고](reports/P05.md)를 따른다.
+현재 단계는 **P06 DONE (2026-10-10, Markdown 내용 초안)**이다. P04 유효 dataset은 `isotp-120-entry-v1` 120/120 `OK`와 `custom-120-terminal-probe-v1` 120/120 `OK`다. 보정 전 `custom-120-entry-v2`의 110 `OK`/10 `FAIL_DATA_TIMEOUT`은 별도 실패 artifact로 보존하며 유효 240건에 합치지 않는다. 전문은 P05 `p05-terminal-probe-v1-20261009`의 summary CSV와 SVG를 사용한다. 공식 양식·저자·PDF 페이지·제출은 미완료다. [P06 보고](reports/P06.md)에 실제 elapsed가 JUMP 송신 호출 뒤 기록되는 측정 한계와 기존 요약문의 후속 문구 정정 항목을 남겼다. 이전 보고서의 보정 전·미실행 snapshot은 당시 이력으로 보존한다.
 
 ## 문서 작성 원칙
 
@@ -26,7 +26,7 @@
 | `C:/repos/CanBootloader-paper`, `paper/ksma-2026` | 측정 수정, 재실험, 논문 문서 |
 | `C:/repos/CanBootloader`, `main` | staging 기반 FOTA; TW-03은 학회 작업 이후 재개 |
 
-분기 기준은 생성 당시 로컬 remote-tracking ref이며 이번 준비 과정에서 fetch하지 않았다. 논문용 branch는 remote upstream을 연결하지 않았다. 아직 commit/push하지 않았으며 새 문서는 이 폴더의 미커밋 파일이다. 대화를 닫아도 파일은 이 폴더에 남지만, 다른 PC나 새 checkout에는 자동 전달되지 않는다. commit/원격 백업은 사용자가 별도로 요청한다.
+분기 기준은 생성 당시 로컬 remote-tracking ref다. P06 시작 HEAD는 `555fbb1b0e2bf37735ea483a144909001c4e1aa7`, upstream은 `origin/paper/ksma-2026`이며 로컬이 2 commits ahead였다. 시작 시 staged·미커밋 변경은 없었다. P06에서는 commit/push/merge/reset하지 않았으며 이번 문서 변경은 미커밋 상태로 남는다. 다른 PC나 새 checkout에 자동 전달되지 않으므로 commit/원격 백업은 사용자가 별도로 요청한다.
 
 ## 연구 범위
 
@@ -36,7 +36,7 @@
 
 - BBB와 STM32, Classical CAN, 동일 보드 내 두 방식의 direct-write 비교.
 - 기존 Python 실험 sender를 기준으로 최소한의 측정/실패 처리 수정.
-- F407을 주 실험 후보로 유지한다. P00의 세 build는 PASS이며 실제 FOTA/boot는 P03에서 확인한다. F103은 보충 검증 후보다.
+- F407이 주 실험 대상이며 P03 smoke와 P04 본 실험, P05 분석을 완료했다. F103은 선택 과제 P07의 보충 검증 후보이며 이번 P06에서는 실행하지 않았다.
 - F103에만 정상 baseline이 확보되면 주 대상을 F103으로 변경하고 근거를 기록할 수 있다.
 - 두 보드를 반드시 끝내야 요약문을 제출할 수 있는 것은 아니다.
 - power-loss recovery, staging, rollback, signature, 실제 차량 BER, 다중 ECU 신뢰성은 이번 필수 주장에 포함하지 않는다.
@@ -70,7 +70,7 @@ TW-03 전체는 보류하지만 실험 sender의 bounded retry/deadline, malform
 | P03 | hardware smoke와 측정 검증 | 10/7~8 | P02 | DONE — 양 방식 5회 baseline, recovery/timeout, boot/readback 기록 |
 | P04 | 주 MCU의 240회 핵심 실험 | 10/8~10 | P03 | DONE — ISO-TP 120/120 OK + terminal-frame probe 보정 Custom 120/120 OK; 원본 실패 artifact 보존 |
 | P05 | 통계·그림·1페이지 요약문 | 10/11~12 | P04 | DONE — 보정 240 trial 재분석 내용 초안; 공식 양식·저자 정보는 외부 blocker |
-| P06 | 2~3페이지 전문 초안 | 10/12~15 | P05 | TODO |
+| P06 | 2~3페이지 전문 초안 | 10/12~15 | P05 | DONE — Markdown 내용 초안; 공식 양식·PDF 페이지 검증 NOT RUN |
 | P07 | F103 등 보충 실험, 필요 시만 | 10/17~22 | P06 | TODO |
 | P08 | 최종 원고·근거 검토 | 10/23~25, 심사 후 재개 | P06; P07은 선택 | TODO |
 
@@ -95,6 +95,8 @@ P00에서 abstract/manuscript 골격을 작성했다. hardware가 일시적으�
 | 기록 | 모든 시도, 실패·timeout·중단 포함. 실패를 성공할 때까지 대체하여 30개 OK만 만들지 않음 |
 | 통계 | 시도/성공/실패 수, 성공률, 성공 조건부 시간의 평균·표준편차·95% CI, 재전송량 |
 
+위 시간 항목은 의도한 실험 계약이다. P06에서 P04의 실행 source hash를 대조한 결과, 실제 `elapsed_sec`는 protocol 호출 직전부터 JUMP 송신 호출 뒤까지이며 END ACK 뒤 처리도 포함했다. entry 뒤 3.0 s는 제외되고 이 경로에는 0.5 s 대기가 없다. P05 원시 수치와 SVG는 보존하며, 그 차이를 전문에 명시했다. 정확한 END ACK 종료 시간으로의 소급 보정은 하지 않는다.
+
 주입 모델은 software omission이다. P02에서 eligible frame 집합과 재전송 주입 정책을 확정한다. 같은 seed만으로 두 protocol에 동일한 누락 위치가 생긴다고 가정하지 않는다. protocol별 frame 역할, payload offset, 실제 drop count를 남기고 동일 fault schedule인지 같은 분포의 독립 시행인지 명시한다. ACK/NACK/FC loss는 기본 240회 matrix에 섞지 않는다.
 
 실행 순서는 가능한 범위에서 protocol 교차/조건 무작위화한다. bootloader 재기록 비용 때문에 batch로 수행하면 작은 균형 batch와 실행 순서를 기록한다. 둘 사이 board/bitrate가 다르면 MCU 성능 효과로 해석하지 않는다.
@@ -115,11 +117,11 @@ P00에서 abstract/manuscript 골격을 작성했다. hardware가 일시적으�
 
 ## 산출물 위치
 
-P00에서 생성한 원고: [요약문](../paper/abstract.md), [전문](../paper/manuscript.md), [참고 출처](../paper/references.md), [초기 설정안](../paper/experiment-config.draft.json). 모든 재실험 결과는 미확정이다. [P00 report](reports/P00.md)와 [원시 근거](reports/artifacts/P00-20261005/) 및 experiments/ksma-2026/p00-build-20261005/의 실제 build 산출물을 보존한다.
+원고: [P05 요약문](../paper/abstract.md), [P06 전문](../paper/manuscript.md), [참고 출처](../paper/references.md), [초기 설정안](../paper/experiment-config.draft.json). 초기 설정안은 실행 config가 아니다. P04 유효 결과와 P05 분석은 위 현재 상태를 따른다. [P00 report](reports/P00.md)와 [원시 근거](reports/artifacts/P00-20261005/) 및 experiments/ksma-2026/p00-build-20261005/의 실제 build 산출물을 보존한다.
 
 기존 계획 문서: 이 README, [Task 상세](tasks.md), [새 대화 안내](codex-session-guide.md), [F407ㆍBBB 장비 운영 안내](hardware-operations.md), [handoff](SESSION_HANDOFF.md), [보고 템플릿](reports/TEMPLATE.md).
 
-아래 중 P00 보고·원고 골격·build archive와 P01 보고·host 검증 evidence는 생성됐다. 실제 FOTA 실험·분석 자료는 아직 없다.
+P00~P05 보고·build/host/hardware evidence와 분석 자료를 보존하고, P06에서는 전문과 종료 문서만 갱신했다.
 
 - `docs/paper-plan/reports/P00.md` ~ `P08.md`: 작업 근거·검증.
 - `docs/paper/abstract.md`, `docs/paper/manuscript.md`: 저자 검토용 원고.
@@ -133,7 +135,9 @@ P00에서 생성한 원고: [요약문](../paper/abstract.md), [전문](../paper
 
 main의 TW-03을 원래 C sender/target 코드 기준으로 재개한다. Python 실험 코드의 수정은 검토 후 필요한 개념만 반영하며 branch 전체를 무조건 merge하지 않는다. 졸업논문에서는 image-size 확장, 두 MCU, burst loss, ACK loss, staging/recovery 등을 별도 연구 질문으로 확장한다.
 
-## P00에서 추가 확인한 후속 gate
+## P00에서 추가 확인한 후속 gate (당시 snapshot)
+
+아래는 P00 당시의 기록이며 현재 장비 상태나 재실행 지시가 아니다. 이후 해결·실행 내역은 P03~P05 보고서를 따른다.
 
 - F407 ISO-TP의 stdint.h 누락만 수정했다. build binary 33,472/42,140/36,832 bytes(Custom/ISO/app)이며 hardware 동작 PASS는 아니다.
 - 고정 dependency는 FC BS=8/STmin=0/response timeout=100 ms다. P01 sender는 BS=8/STmin=0 FC를 검증하고 8 CF마다 대기한다.

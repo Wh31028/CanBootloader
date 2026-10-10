@@ -1,5 +1,75 @@
 # 논문 작업 인수인계
 
+최종 갱신: 2026-10-10, P06 종료. 이 파일 상단이 현재 지시이며 맨 아래 접힌 이전 기록은 이력 보존용이다.
+
+## 현재 상태
+
+- 폴더/branch: `C:/repos/CanBootloader-paper` / `paper/ksma-2026`.
+- 시작 HEAD: `555fbb1b0e2bf37735ea483a144909001c4e1aa7`; upstream보다 2 commits ahead. staged·미커밋 변경 없이 시작했다.
+- 마지막 완료: **P06 DONE — 2~3페이지 목표 전문 Markdown 내용 초안**. 공식 양식·PDF 페이지 검증·제출 완료를 뜻하지 않는다.
+- 진행 중 Task/이번 세션에서 시작한 hardware 프로세스: 없음. 장비에 재접속하지 않았으므로 현재 원격 프로세스·장비 상태는 재확인하지 않았다.
+- 다음 권장 Task: **P08 문서 검토만**. P07은 선택 과제로 미선택·미실행이며, 이번 종료에서 P07/P08을 시작하지 않았다.
+- 변경 파일: `docs/paper/manuscript.md`, `docs/paper-plan/reports/P06.md`, `README.md`, 이 파일. 미커밋 상태로 인계한다.
+- commit/push/merge/reset, F103, main TW-03, build/hardware 재실행, 외부 제출·연락은 하지 않았다.
+- 두 ISO-TP submodule: `5593428d95af10dde1e565cebcda16089fc74857`, 변경 없음.
+
+## 사용할 데이터와 원고
+
+| 구분 | 경로/판정 |
+| --- | --- |
+| 유효 ISO-TP | `reports/artifacts/P04-20261009/bbb-p04-f407-500k-20261009/isotp-120-entry-v1`, 120/120 OK |
+| 유효 Custom | 같은 root의 `custom-120-terminal-probe-v1`, 120/120 OK |
+| 보정 전 Custom | 같은 root의 `custom-120-entry-v2`, 110 OK/10 FAIL_DATA_TIMEOUT; **유효 240건에 합치지 않음** |
+| P05 분석 | `experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/`의 summary CSV·validation JSON·SVG 3개 |
+| 전문 | [manuscript.md](../paper/manuscript.md), P06 내용 초안 |
+| 상세 검증·잔여 질문 | [reports/P06.md](reports/P06.md) |
+
+P00~P05 보고/evidence, 예비 CSV, 실패 artifact, 기존 P05 분석 출력은 보존했다. 옛 `p05-20261009`는 보정 전 분석 이력이며 현재 원고 입력이 아니다. P04 보고의 일부 아래쪽 문구 및 접힌 handoff에는 보정 전·미실행 단계가 섞여 있으므로 현재 상태로 실행하지 않는다.
+
+공통 조건은 F407/500 kbit/s/65,536 B/0xFF padding, direct-write `[0x08010000,0x08020000)`, sector 4 erase다. application SHA-256은 `1badd29c53120916c2f2b0f2e773c6af953960bedeb1c199b66021096b9870e1`이다. 두 run은 다른 seed·source revision으로 별도 batch 실행됐고 확률별 30회씩이다.
+
+## P06에서 확인한 한계와 다음 검토
+
+1. **시간 종료점:** 의도는 START 직전→END ACK 직후지만 실제 P04 sender는 JUMP 송신 호출 뒤 `elapsed_sec`를 기록했다. 원고는 이 차이를 명시하고 기존 P05 수치를 그대로 썼다. JUMP 처리 시간을 소급 분리하거나 0.5초를 차감하지 않는다. source 두 hash와 확인 위치는 P06 보고에 있다.
+2. **요약문 잔여 문구:** `abstract.md`는 결과 숫자·dataset은 일치하지만 “loss 조건의 timeout 실패도 함께 발생했다”가 보정 전 실패임을 명시하지 않는다. 시간 경계 서술도 위 한계와 맞춰야 한다. 전문만 보완하라는 이번 요청에 따라 요약문·P05 보고는 수정하지 않았으며, 다음 P08에서 문구를 맞춘다.
+3. **일반화 제한:** software omission, Custom DATA/ISO-TP CF 대상 비대칭, 별도 batch·seed, send error 및 host 영향. ISO-TP 전체·실제 차량·일반 신뢰성 우위를 주장하지 않는다. 성공 시간과 성공률/실패 이력을 함께 읽는다.
+4. **외부 잔여:** 공식 양식·트랙·저자/소속/교신저자·참고문헌 포함 분량·교수 검토. PDF 미생성으로 2~3페이지 준수는 NOT RUN. 직접 CAN FOTA 선행연구 확충도 검토 대상이다.
+5. F103 ISO-TP는 P00의 17,224-byte overflow 상태를 보존한다. main staging/TW-03과 이번 F407 결과를 섞지 않는다.
+
+검증은 기존 분석 함수를 읽기 전용으로 호출해 raw/JSONL/manifest/config 240건, 입력 hash, 요약 8행, SVG 3개(메모리에서 재생성)를 대조했다. 보정 전 110/10 및 terminal 누락 대응도 확인했다. 명령·출력·최종 보존 점검은 P06 보고를 따른다. build, host/hardware 기능 시험, 공식 PDF 검증은 **NOT RUN**이다.
+
+## 다음 대화 시작 prompt
+
+```text
+C:\repos\CanBootloader-paper의 paper/ksma-2026에서 진행해줘.
+AGENTS.md, docs/paper-plan/README.md, SESSION_HANDOFF.md,
+tasks.md의 P08, codex-session-guide.md, reports/P05.md와 P06.md,
+docs/paper/manuscript.md, abstract.md, references.md를 읽어줘.
+
+이번 대화에서는 P08의 문서·근거 검토만 수행해줘.
+먼저 git status --short --branch, git rev-parse HEAD, git submodule status를 확인하고
+P06 미커밋 문서, P00~P05 evidence, 예비 CSV, P04 raw artifact를 보존해줘.
+유효 입력은 isotp-120-entry-v1과 custom-120-terminal-probe-v1의 240 OK이며,
+custom-120-entry-v2의 110 OK/10 FAIL_DATA_TIMEOUT은 별도 실패 기록이다.
+P05 p05-terminal-probe-v1-20261009의 summary CSV와 SVG를 사용해
+전문·요약문의 dataset/수치/시간 경계/실패 이력 표현을 맞춰줘.
+실제 elapsed에 JUMP 송신 호출까지 포함된 한계를 유지하고 원시 시간은 보정하지 마.
+공식 양식·저자 정보가 없으면 미확정으로 남기고 PDF 페이지 검증을 PASS로 쓰지 마.
+F103/P07, main TW-03, hardware 재실행, 외부 제출·연락,
+commit/push/merge/reset은 하지 마.
+종료 전에 reports/P08.md, README 상태, SESSION_HANDOFF.md에
+실행한 검증·미완료 조건·다음 프롬프트를 기록해줘.
+```
+
+## 이전 handoff 원문 (이력 보존)
+
+<details>
+<summary>2026-10-09 및 이전 snapshot — 현재 실행 지시가 아님</summary>
+
+아래의 P04 재실행 prompt, 연결 실패, 미커밋 여부와 NOT RUN은 각각 기록 당시 상태다. 현재 작업에는 위 P06 종료 상태를 적용한다.
+
+# 논문 작업 인수인계
+
 최종 갱신: 2026-10-09. 다음 대화는 이 파일을 먼저 읽는다.
 
 ## 현재 상태
@@ -137,3 +207,5 @@ BBB SSH/can0/current firmware·bootloader hash와 새 run directory 부재를 �
 원본 Custom/ISO-TP run을 덮어쓰거나 결과를 혼합하지 마. 연결 불가면 hardware 실행을 NOT RUN으로 기록하고
 P04 report·README·SESSION_HANDOFF를 갱신해줘. F103, main TW-03, 외부 제출·연락은 하지 마.
 ```
+
+</details>

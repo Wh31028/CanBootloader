@@ -1,90 +1,96 @@
 # CAN 기반 펌웨어 업데이트를 위한 비트맵 선택 재전송 기법의 구현 및 성능 평가
 
-P00 골격 / 2026-10-05 / 2~3페이지 목표, 공식 양식 및 PDF 페이지 검증 NOT RUN.
+P06 내용 초안 / 2026-10-10 / 2~3페이지 목표. 공식 양식 적용·PDF 페이지 검증: **NOT RUN**.
+
 [저자·소속·교신저자·제출 트랙 미확정]
 
-## 1. 서론과 연구 질문
+## 1. 서론 및 관련 배경
 
-펌웨어를 여러 CAN 프레임으로 분할해 전송하는 환경에서 수신 누락을 어떻게 보고하고 어느 단위로 복구하는지 비교한다. 연구 질문은 송신단 software omission 조건에서 bitmap 선택 재전송과 ISO-TP 기반 FOTA application block 재시도의 시간·재전송량이 어떻게 다른가이다. 누락된 프레임만 다시 보내는 방식이 일부 조건에서 재전송량을 줄일 수 있다는 가설을 검증하며, 시간 이득이나 우월성을 전제하지 않는다.
+CAN(Controller Area Network) 기반 펌웨어 업데이트에서는 분할된 데이터의 누락을 알리는 방법과 재전송 단위가 복구 비용에 영향을 준다. 본 연구는 BeagleBone Black(BBB) 송신단과 STM32F407 수신단에서, 수신 비트맵으로 빠진 프레임을 식별하는 Custom 방식과 ISO-TP 기반 구현의 애플리케이션 블록 재시도를 비교한다. 연구 질문은 송신단의 소프트웨어 데이터 누락 조건에서 두 구현의 성공률, 성공 조건부 시간, 재전송량이 어떻게 달라지는가이다.
 
-실험은 capston-1 기반 direct-write branch에서 진행한다. main의 staging 구현·TW-03 자료 및 기존 예비 CSV와 데이터셋을 분리한다.
+ISO-TP는 긴 메시지를 첫 프레임(FF)과 연속 프레임(CF)으로 나누며, 수신단의 흐름 제어(FC)가 연속 전송할 CF 수(BS)와 최소 간격(STmin)을 지정한다. 한 프레임으로 끝나는 메시지는 SF로 보낸다.[1] 수신 구간을 보고하여 누락 부분을 다시 보내는 원리는 TCP SACK에도 쓰이지만, 이는 선택 재전송의 배경이며 CAN에서의 성능 근거는 아니다.[2] 본 비교의 256-byte 블록 재시도는 프로젝트 송신 프로그램의 정책이다. ISO-TP 표준의 필수 복구 방식, Linux 커널 ISO-TP, 일반 UDS 구현 전체의 성능을 대표하지 않는다.
 
-## 2. 관련 배경과 비교 대상
-
-ISO-TP의 SF/FF/CF/FC는 CAN에서 분할 전송과 흐름 제어를 제공한다. FC의 blocksize와 STmin은 수신 측이 제시하는 전송 제약이다. [Linux 공식 ISO-TP 문서](https://docs.kernel.org/networking/iso15765-2.html)
-
-수신한 구간을 송신 측에 알리고 누락 부분을 재전송하는 발상은 TCP SACK 등에도 나타난다. 이 원리는 배경으로만 인용하며 TCP의 성능 결과를 CAN FOTA의 근거로 대체하지 않는다. [RFC 2018](https://www.rfc-editor.org/rfc/rfc2018.html)
-
-| 항목 | Custom bitmap | 본 프로젝트 ISO-TP 기반 FOTA |
-| --- | --- | --- |
-| 송신/응답 CAN ID | 0x100 / 0x101 | 0x7E0 / 0x7E8 |
-| application 데이터 단위 | 256 bytes | 256 bytes + command 1 byte의 ISO-TP PDU |
-| 정상 block의 데이터 운반 | 최대 7 bytes씩 37 DATA frames | FF 1 + CF 36 |
-| 복구 | 수신 bitmap에서 빠진 sequence 재전송 | application ACK timeout 등에서 block 재시도 |
-| 최종 확인 | image CRC32와 END 응답 | image CRC32와 END 응답 |
-
-application block 재시도는 이 저장소의 sender 정책이다. 이를 ISO-TP 표준 자체의 필수 재전송 방식이나 일반적인 UDS 구현과 동일시하지 않는다. 256-byte application chunk를 FC BS=256이라고 쓰지 않는다. 고정 isotp-c revision의 실제 FC 기본값은 BS=8, STmin=0 ms, transport response timeout=100 ms이다. 현재 F407 sender의 BS=0 가정은 P01 수정 대상이다. 자세한 출처와 열람 범위는 [references.md](references.md)에 정리했다.
-
-## 3. 시스템과 방법
+## 2. 시스템과 복구 방식
 
 ```mermaid
 flowchart LR
-    H["BBB: sender / software omission"] -->|"Classical CAN"| B["STM32F407: bootloader"]
-    B -->|"ACK / bitmap NACK / FC"| H
-    B --> F["application Flash: 0x08010000~0x0801FFFF"]
-    H --> L["trial manifest / raw log / trace"]
+    H["BBB: Python CAN_RAW 송신단<br/>DATA 누락 주입·유한 재시도"] -->|"Classical CAN 500 kbit/s"| B["STM32F407 부트로더<br/>Custom 또는 ISO-TP"]
+    B -->|"ACK·비트맵 NACK 또는 FC·응답"| H
+    B --> F["Flash 직접 기록<br/>0x08010000–0x0801FFFF"]
+    H --> L["trial별 CSV·JSONL·manifest"]
 ```
 
-### 3.1 공통 조건안
+그림 1. 같은 보드에 각 부트로더를 사용한 direct-write 비교 구성. ACK는 정상 수신 응답, NACK는 누락 보고이며, Flash 기록과 최종 CRC32 검사를 포함한다.
 
-| 조건 | 계획 및 P00 확인 수준 |
+두 방식은 65,536-byte 이미지를 256-byte 블록 256개로 처리한다. Custom은 블록을 최대 7-byte 데이터의 37개 프레임으로 나누고, 수신단은 비트맵에서 빠진 번호를 알려 선택 재전송하게 한다. 마지막 프레임이 누락되면 수신단이 비트맵 NACK를 내지 못하므로, 보정 송신단은 응답 대기 후 마지막 프레임을 최대 4회 다시 보내 응답을 유도한다(terminal-frame probe). 이 probe에도 누락 주입과 재전송 계수를 적용한다. 비트맵에 따른 선택 재전송 후에도 ACK가 없으면 실패로 끝낸다.
+
+비교 ISO-TP 구현은 명령 1 byte와 데이터 256 bytes를 FF 1개와 CF 36개로 전송한다. 송신단은 FC의 BS=8, STmin=0을 확인하고 8 CF마다 다음 FC를 기다린다. 전송 또는 애플리케이션 응답 확인에 실패하면 해당 블록의 전송을 다시 시작하며, 최초 전송을 포함해 최대 4회 시도한다. 수신단의 고정 isotp-c 버전은 transport 응답 timeout 100 ms를 사용한다.[3] 이 설정은 송신단의 DATA 응답 대기 0.15 s 및 FC 대기 1 s와 구별된다. 두 방식의 transaction deadline 설정은 120 s, runner 제한은 140 s다.
+
+## 3. 실험 방법과 측정 범위
+
+표 1. P04 유효 데이터의 공통 조건.[4]
+
+| 항목 | 실제 조건 |
 | --- | --- |
-| 보드 | STM32F407 주 후보, 실제 보드 식별·기동 미확인 |
-| bitrate | source 계산 1 Mbit/s; 실제 bus는 P03 확인 |
-| image | 동일 65,536 bytes와 hash, 원본 app 뒤 증가 패턴 0x00~0xFF 반복 padding |
-| Flash | start 0x08010000, end exclusive 0x08020000, sector 4 erase |
-| block | 256 bytes, 256 blocks |
-| 실험 횟수 | 2방식 × 4확률 × 30회 = 240개의 계획 시도 |
-| 확률 p | 0 / 0.0001 / 0.0005 / 0.001; 백분율 0 / 0.01 / 0.05 / 0.1% |
-| transaction 성공 | CRC 성공을 나타내는 유효한 END ACK |
-| boot 성공 | 별도 관측·필드, 확인 방법은 P03 확정 |
-| 최적화 | P00 원형은 Custom -Os, ISO-TP 사용자 코드 -O0; P03 전 비교 정책 통일·재빌드 필요 |
+| 장비·통신 | STM32F4DISCOVERY의 F407, BBB Linux 4.19.94-ti-r42, CAN 500 kbit/s |
+| 이미지 | 동일 65,536 bytes, 애플리케이션 뒤 0xFF padding; SHA-256 `1badd29c…9870e1` |
+| 기록 범위 | `[0x08010000,0x08020000)`, START에서 Flash sector 4 erase |
+| 구현 설정 | 양 부트로더 사용자 코드 -Os; 표준 CAN ID Custom 0x100/0x101, ISO-TP 0x7e0/0x7e8 |
+| 누락 확률 p | 0, 0.0001, 0.0005, 0.001 (0, 0.01, 0.05, 0.1%) |
+| 반복·실행 순서 | 방식별 확률당 30회; protocol별 별도 batch, 각 batch에서 확률 오름차순 |
+| 성공 판정 | raw `transaction_status=OK`; END ACK/CRC 확인, 부팅 관측은 별도 |
 
-P00 app binary는 36,832 bytes로 64 KiB에 들어간다. padding image와 실제 시험 hash는 아직 생성·확정하지 않았다. 정적 vector/address 검증은 hardware boot 검증을 대신하지 않는다. 초기 설정안은 [experiment-config.draft.json](experiment-config.draft.json)이며 실행 config가 아니다.
+유효 입력은 `isotp-120-entry-v1` 120회와 `custom-120-terminal-probe-v1` 120회, 총 240회다. 송신단 source fingerprint와 부트로더·이미지 hash는 각 manifest 및 P05 검증 기록으로 특정한다.[4] 두 batch는 서로 다른 송신단 revision과 seed 집합으로 실행됐다. 기존 예비 CSV, P03 smoke, 보정 전 Custom 및 초기 실행 오류 기록은 이 240회에 합치지 않았다.
 
-F103은 보충 후보다. bootloader 16 KiB, application [0x08004000, 0x08014000), 최대 65,536 bytes이다. ISO-TP build는 Flash overflow로 실패했고 보충 비교는 미확보이다. main의 staging 0x08012000와 57,336-byte 한도는 적용하지 않는다.
+누락은 socket 송신 호출 전에 해당 프레임을 생략하는 software omission이다. 모델 `p02-frame-omission-v1`은 Custom DATA 37개와 ISO-TP CF 36개를 블록별 대상으로 삼으며, 원본 및 재전송마다 seed 기반으로 추첨한다. ISO-TP FF와 START/END/JUMP, ACK/NACK/FC에는 누락을 주입하지 않는다. 따라서 같은 확률은 같은 누락 위치나 같은 노출량을 뜻하지 않는다. 이는 물리 CAN bit error rate, 오류 프레임 또는 controller 자동 재전송을 재현한 실험이 아니다.
 
-### 3.2 주입 모델
+의도한 시간 경계는 monotonic clock의 START 송신 직전부터 유효 END ACK 직후까지이며, erase/write/CRC와 호스트 처리·대기를 포함한다. 다만 **실행 source의 `elapsed_sec`는 protocol 호출 직전부터 JUMP 송신 호출 뒤까지 기록되어**, END ACK 뒤 함수 반환·JUMP 송신 처리도 포함한다. 그 추가 시간을 별도로 분리할 기록은 없어, 본문·그림에는 P05가 집계한 raw elapsed를 그대로 사용한다. 다운로드, entry `0x200#DEAD` 뒤 3.0 s 대기, 실제 부팅 확인은 포함하지 않으며, 이 실행 경로에는 과거의 JUMP 전 0.5 s 대기가 없다. 임의 시간 차감은 하지 않았다. 순수 transport 시간이나 정확한 END ACK 종료 시간, 전체 ECU 정지 시간으로 해석하지 않는다.
 
-fault는 송신 socket 호출 전에 선택한 프레임을 생략하는 software omission이다. 실제 CAN bus error나 controller 자동 재전송을 주입하는 시험이 아니다. 원형은 Custom DATA 전체와 ISO-TP CF만을 대상으로 하며 FF는 제외되어 비대칭이다. Custom의 timeout tail probe는 누락 주입을 거치지 않고 선택 재전송 DATA는 다시 주입된다. ISO-TP는 재시도 block의 CF에도 주입된다.
+성공률은 모든 계획 trial을 분모로 한다. 시간은 `OK` 행만의 평균·표본 표준편차(SD) 및 양측 95% Student-t 신뢰구간(CI: 평균 ± t×SD/√n)이다. 조건별 n=30, 자유도 29를 사용하며, 독립·동일 조건 반복과 평균의 근사적 정규성을 전제한다. 이 CI는 고정된 장비·실행 순서에서 관측한 산포를 요약하며 다른 환경까지 보장하지 않는다. 실패 경과시간을 성공 시간에 대입하지 않는다.
 
-P02에서 eligible frame 집합, FF 포함 여부, 마지막 frame·재전송 정책, seed와 drop 위치 기록을 확정한다. 같은 seed는 동일 fault schedule을 보장하지 않는다. ACK/NACK/FC loss는 기본 matrix에서 제외한다. 연속 trial의 순서는 protocol 교차 또는 균형 batch로 계획하고 실제 순서를 보존한다.
+재전송 overhead는 조건별 모든 계획 trial에서 `Σ retransmit_attempts / Σ send_attempts × 100`이다. 분모는 software drop도 포함한 START/DATA/END의 논리적 송신 시도이며, entry·JUMP 및 수신 응답은 제외된다. ENOBUFS 재호출은 별도 송신 오류로 기록하고 논리적 시도를 중복 가산하지 않는다. SocketCAN acceptance는 실제 선로 송신 완료나 CAN 자동 재전송 횟수가 아니므로, 이 비율은 총 버스 점유율을 뜻하지 않는다.
 
-### 3.3 시간·계수·실패
+## 4. 결과와 논의
 
-monotonic clock으로 START 송신 직전부터 검증된 END ACK 직후까지 측정한다. erase/write/CRC와 호스트 처리·대기를 포함한 CAN FOTA transaction 시간이며 transport-only나 전체 ECU downtime이 아니다. download, bootloader 진입 대기, JUMP 전 0.5초 대기와 boot 확인은 제외한다.
+두 유효 run은 각각 120/120 `OK`이며, 여덟 조건 모두 30회 시도 중 성공 30회·실패 0회로 관측 성공률은 100%였다. 이는 제한된 표본의 결과이며 실패 확률이 0이라는 보장은 아니다. 모든 trial의 부팅 필드는 `JUMP_SENT_NOT_VERIFIED`로, 240회의 개별 애플리케이션 기동 성공을 뜻하지 않는다.
 
-송신 시도·software drop·socket 송신 성공·송신 오류·protocol RX·재전송 시도/성공을 구분한다. SocketCAN 송신 성공은 실제 on-wire 완료 횟수가 아니다. overhead 분모는 P01에서 고정한다. bounded retry/deadline 및 crash/timeout/중단 기록은 P02에서 구현한다. 성공만 채워 30회로 대체하지 않는다.
+표 2. 성공 조건부 raw elapsed의 평균 ± SD(s)와 모든 송신 시도 기준 재전송 overhead(%). 각 시간 표본 n=30. 수치는 P05 summary CSV를 소수 셋째 자리로 반올림했다.[4]
 
-### 3.4 재현성과 분석 계획
+| 누락 확률 | Custom 시간 | RAW_ISO-TP 시간 | Custom overhead | RAW_ISO-TP overhead |
+| ---: | ---: | ---: | ---: | ---: |
+| 0% | 9.617 ± 0.277 | 18.193 ± 0.120 | 0.000 | 0.000 |
+| 0.01% | 9.496 ± 0.133 | 19.227 ± 0.968 | 0.007 | 0.429 |
+| 0.05% | 9.510 ± 0.127 | 22.594 ± 2.363 | 0.048 | 1.789 |
+| 0.1% | 9.484 ± 0.114 | 26.448 ± 3.138 | 0.091 | 3.351 |
 
-각 trial에 source commit + dirty patch + 파일 hash, 두 bootloader 및 image hash, toolchain, BBB OS/interface 설정, seed, 명령과 exit status를 연결한다. 시도/성공/실패 수, 성공률, 성공 조건부 시간의 평균·표준편차·95% CI와 재전송량을 함께 제시한다. CI 방법·가정·표본 수는 P05에서 명시한다.
+![성공 조건부 raw elapsed와 95% t CI](../../experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/p05-success-time.svg)
 
-## 4. 결과
+그림 2. P05 성공 조건부 시간 SVG. 오차막대는 95% t CI다. 제목의 transaction time은 3절의 실제 측정 경계를 따른다. 확률 조건은 등간격 범주로 배치되어 연속 확률축의 기울기로 해석하지 않는다.
 
-**[결과 미확정]**. hardware smoke 및 240회 본 실험 NOT RUN. 기존 CSV에서 수치를 옮기거나 보정하지 않는다.
+![모든 송신 시도 기준 재전송 overhead](../../experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/p05-retransmit-overhead.svg)
 
-- 표 1: [조건별 시도·성공·실패 수와 실패 유형]
-- 그림 1: [성공 조건부 transaction 시간과 95% CI]
-- 그림 2: [같은 정의의 재전송량/overhead]
-- 결과 문장: [raw dataset 경로·분석 명령·표본 수를 연결해 작성]
+그림 3. P05 재전송 overhead SVG. Custom의 선택 재전송·terminal probe와 비교 구현의 블록 재시도를 센다. 수신 방향 FC·ACK 등은 이 지표에 포함되지 않는다.
 
-## 5. 논의·한계와 결론
+RAW_ISO-TP의 평균 시간은 0%에서 18.193 s(CI 18.148–18.238), 0.1%에서 26.448 s(25.276–27.620)였다. Custom은 각각 9.617 s(9.514–9.720), 9.484 s(9.441–9.526)였다. 0.1%에서 재전송/전체 송신 시도는 Custom 259/284,479, RAW_ISO-TP 9,735/290,511이었다. 작은 재전송 단위와 관측 overhead 차이는 일관되지만, 전체 시간 차이를 선택 재전송 하나의 효과로 분리할 수는 없다. 무누락에서도 시간 차이가 있으며 FC 처리·호스트 스케줄링·프로토콜별 대기와 batch 순서가 함께 작용한다. Custom의 높은 누락 조건에서 시간이 조금 짧아진 것을 누락의 성능 개선 효과로 해석하지 않는다. Custom의 송신 오류 계수 합계 31건도 raw에 보존되어 있으며, transaction 실패 31건을 뜻하지 않는다.
 
-**[결과 미확정]**. 선택 재전송 이득과 추가 bitmap/처리 비용은 관측 후 평가한다. 누락 대상 비대칭, FC 준수, compiler 옵션, host 부하, bitrate, 제한된 image 크기를 해석에 포함한다. ACK loss로 인한 중복 block 처리 등은 별도 위험으로 다루며 이번 DATA-only 주입 결과로 일반적인 신뢰성을 주장하지 않는다.
+보정 전 `custom-120-entry-v2`는 120회 중 110 `OK`, 10 `FAIL_DATA_TIMEOUT`(관측 성공률 91.7%)이었다. 10건 모두 블록의 최초 전송에서 마지막 `frame_index=36` 누락을 포함했고, 당시 송신단은 첫 무응답에서 실패했다. 이후 terminal-frame probe를 적용한 **별도 120회 전체 batch**가 현재 Custom 입력이다. 실패 10건만 성공으로 바꾼 자료가 아니며, 원본 실패와 성공 110건 모두 별도로 보존한다. 이 경과는 복구 정책의 구현 완전성이 결과에 영향을 줄 수 있음을 보이며, 보정 전후 batch의 성능 차이를 통제된 짝비교 효과로 단정하지 않는다.
 
-서로 다른 MCU/bitrate의 절대 시간 차이를 MCU 효과로 분리하지 않는다. 차량 BER·혼합 traffic·다중 ECU·staging·rollback·signature·power-loss recovery는 검증 범위 밖이다.
+## 5. 결론 및 한계
 
-## 참고문헌 및 제출 잔여
+이 F407 direct-write 구현과 software omission 조건에서 보정 Custom은 비교 ISO-TP 기반 구현보다 짧은 성공 조건부 시간과 작은 재전송 overhead를 보였고, 유효 데이터의 관측 성공률은 두 방식 모두 120/120이었다. 그러나 누락 대상의 비대칭, 서로 다른 seed·source revision, 무작위화되지 않은 별도 batch, 시간 종료점의 JUMP 송신 포함 때문에 ISO-TP 전체에 대한 우위나 일반 신뢰성 향상으로 확대할 수 없다.
 
-[references.md](references.md)의 열람한 원문/공식 문서만 인용한다. 제출 전 저자, 트랙, 공식 양식, 참고문헌 포함 페이지 계산, 발표 형식, deadline 확인과 사용자·교수 검토가 필요하다. 외부 제출은 사용자 진행이다.
+P03의 기동 관측·readback 및 P04 종료 후 readback은 개별 검증 근거이며 모든 trial의 개별 readback을 대신하지 않는다. 한 보드·한 이미지 크기·한 bitrate만 평가했고 ACK/FC 누락, burst loss, 혼합 트래픽, 다중 ECU 및 실제 차량 환경은 검증하지 않았다. F103 비교, 전원 차단 복구, staging·rollback·서명도 본 결과의 범위 밖이다. raw 수치와 성공·실패 기록을 함께 제시하는 제한된 구현 비교로 결론을 한정한다.
+
+## 참고문헌
+
+[1] Linux Kernel documentation, [ISO 15765-2 (ISO-TP)](https://docs.kernel.org/networking/iso15765-2.html), frame types 및 Flow Control options, 열람 2026-10-10. ISO 표준 전문을 대체하지 않음.
+
+[2] M. Mathis et al., [TCP Selective Acknowledgment Options, RFC 2018](https://www.rfc-editor.org/rfc/rfc2018.html), 1996, §§1, 3, 5, 열람 2026-10-10.
+
+[3] lishen2, [isotp-c, revision 5593428d95af10dde1e565cebcda16089fc74857](https://github.com/lishen2/isotp-c/tree/5593428d95af10dde1e565cebcda16089fc74857), 로컬 `isotp_config.h` 대조, 2026-10-10.
+
+[4] 본 연구 [P03](../paper-plan/reports/P03.md)·[P04](../paper-plan/reports/P04.md)·[P05](../paper-plan/reports/P05.md) 기록, [보정 데이터 summary CSV](../../experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/p05-summary-by-protocol-loss.csv), [입력 hash·source fingerprint](../../experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/p05-validation.json). 보정 전 결과와 구별해 읽는다.
+
+---
+
+작성 메모(제출 본문 제외): 이 문서는 Markdown 내용 초안이다. 공식 양식·저자·트랙·참고문헌 포함 페이지 수 및 교수 검토는 미완료다. [P06 보고](../paper-plan/reports/P06.md)에 재현 검증, 시간 경계 차이, 기존 요약문과의 잔여 문구 차이 및 검토 질문을 기록했다. 성공률 그림은 지면 절약을 위해 본문 수치로 대신하며 [P05 원본 SVG](../../experiments/ksma-2026/analysis/p05-terminal-probe-v1-20261009/p05-success-rate.svg)를 보존한다.
