@@ -128,7 +128,7 @@ Target은 `RECEIVING` state에서만 DATA를 처리합니다. 현재 block의 `s
 - Target은 DLC가 정확히 1이고 `IMAGE_VERIFIED` state일 때만 `0x08004004`의 Reset Handler가 application 범위에 있는지 검사합니다. 따라서 START 없이 받은 JUMP는 application으로 전이하지 않고 `ERR(0x07)`을 반환합니다.
 - 성공 시 ACK를 보내고 약 100 ms 뒤 VTOR/MSP를 전환하여 application으로 jump합니다.
 - 실패 시 `ERR(0x05)`를 보냅니다.
-- BBB flasher는 현재 JUMP response를 기다리지 않습니다.
+- BBB flasher는 JUMP 송신 후 1.0 s 동안 ACK를 기다리며, ACK가 없거나 ERR이면 실패로 종료합니다.
 
 ## Target → Host packet layout
 
@@ -212,14 +212,36 @@ idempotency mechanism이 없습니다.
 
 | 단계 | BBB timeout | 현재 동작 |
 | --- | ---: | --- |
-| Entry | 3.0 s 고정 대기 | 응답을 기다리지 않고 RX buffer를 비운 뒤 START |
+| Entry | 3.0 s 고정 대기 | 응답을 기다리지 않고 RX buffer를 비운 뒤 START. Entry frame 송신 실패 시 종료 |
 | START | 10.0 s | ACK가 아니거나 timeout이면 session 종료 |
-| DATA block | 150 ms | 마지막 expected frame을 다시 보내 NACK/ACK 판단을 유도 |
+| DATA block | 150 ms (시도당) | 마지막 expected frame을 다시 보내 NACK/ACK 판단을 유도 |
 | NACK | 응답 수신 즉시 | Bitmap에서 0인 sequence만 재전송 |
+| DATA retry | block당 20회 | Timeout 재전송과 NACK 재전송을 합산. 초과하면 session 종료 |
+| DATA 전체 | 120 s | DATA 단계 전체 deadline. 초과하면 session 종료 |
 | END | 10.0 s | ACK가 아니거나 timeout이면 session 종료 |
-| JUMP | 0.5 s 지연 후 전송 | Response 대기 없음 |
+| JUMP | 0.5 s 지연 후 전송, ACK 1.0 s | ACK가 아니거나 timeout이면 실패 |
 
-Custom DATA retry loop에는 최대 횟수나 전체 session deadline이 없습니다. 따라서 지속적인 link fault에서는 retry가 계속될 수 있습니다.
+위 값은 host 정책이며 wire format에는 포함되지 않습니다. Target timeout과 호환성에는 영향이 없습니다.
+
+Host의 모든 frame 송신은 SocketCAN TX queue가 가득 찬 경우(`ENOBUFS`) 최대 100 ms까지 재시도한 뒤 실패합니다. `write()` 성공은 frame이 kernel queue에 들어갔다는 뜻일 뿐 target 수신을 보장하지 않으므로, 전달 확인은 위 ACK/NACK 응답으로만 판단합니다. Host는 CAN error frame도 수신하여 bus-off는 즉시 실패로, ACK error와 error-passive/warning 상태는 경고와 통계로 보고합니다.
+
+Block retry 상한 초과는 target 무응답과 block ACK 유실을 구별하지 못합니다. 위의 ACK 유실 한계는 Protocol v2의 block identifier로 해결해야 합니다.
+
+### Host exit code
+
+`can_fota_flasher`는 성공 시 0, 실패 시 원인별 code로 종료합니다 (`can-fota-BBB/flasher/fota_common.h`의 `fota_err_t`).
+
+| Code | 이름 | 의미 |
+| ---: | --- | --- |
+| 0 | `FOTA_OK` | Update와 JUMP ACK 성공 |
+| 1 | `FOTA_ERR_FAILED` | 사용법, 파일, socket open 오류 또는 원인 미분류 실패 (ISO-TP 경로 포함) |
+| 2 | `FOTA_ERR_INVALID_ARG` | 잘못된 인자 |
+| 3 | `FOTA_ERR_TX_TIMEOUT` | TX queue 포화(`ENOBUFS`)가 100 ms 이상 지속 |
+| 4 | `FOTA_ERR_SOCKET` | 그 밖의 socket 오류 (예: `can0` down의 `ENETDOWN`) |
+| 5 | `FOTA_ERR_RESP_TIMEOUT` | START/END/JUMP 응답 timeout |
+| 6 | `FOTA_ERR_TARGET` | Target ERR 또는 예상하지 않은 응답 |
+| 7 | `FOTA_ERR_BUS` | CAN controller bus-off |
+| 8 | `FOTA_ERR_RETRY_EXHAUSTED` | Block retry 상한 또는 DATA 전체 deadline 초과 |
 
 Bootloader의 10초 무수신 fallback은 BKP magic으로 진입했을 때만 활성화됩니다. 그 시점에 active Reset Handler가 여전히 valid해야 기존 application으로 jump합니다.
 
