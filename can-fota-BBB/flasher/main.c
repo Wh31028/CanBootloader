@@ -1,6 +1,7 @@
 #include "protocol.h"
 #include "can_socket.h"
 #include "custom_fota.h"
+#include "fota_common.h"
 #include "isotp_fota.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,5 +72,6 @@ int main(int argc, char *argv[]) {
     close(sock);
     free(fw_data);
 
-    return (result == 0) ? 0 : 1;
+    /* Exit status is the fota_err_t code (0 = success); see fota_common.h. */
+    return (result < 0) ? -result : (result == 0 ? 0 : FOTA_ERR_FAILED);
 }

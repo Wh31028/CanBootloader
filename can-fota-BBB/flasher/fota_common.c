@@ -32,13 +32,43 @@ void precise_delay(double seconds) {
     }
 }
 
+double monotonic_now(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1000000000.0;
+}
 
-void trigger_fota_entry(int sock, uint32_t request_id) {
+const char *fota_err_str(int err) {
+    if (err < 0) err = -err;
+    switch (err) {
+    case FOTA_OK: return "OK";
+    case FOTA_ERR_FAILED: return "FAILED";
+    case FOTA_ERR_INVALID_ARG: return "INVALID_ARG";
+    case FOTA_ERR_TX_TIMEOUT: return "TX_TIMEOUT";
+    case FOTA_ERR_SOCKET: return "SOCKET";
+    case FOTA_ERR_RESP_TIMEOUT: return "RESP_TIMEOUT";
+    case FOTA_ERR_TARGET: return "TARGET";
+    case FOTA_ERR_BUS: return "BUS";
+    case FOTA_ERR_RETRY_EXHAUSTED: return "RETRY_EXHAUSTED";
+    default: return "UNKNOWN";
+    }
+}
+
+int trigger_fota_entry(int sock, uint32_t request_id) {
     printf("[FOTA] STM32 App FW에 FOTA 진입 신호 전송 중... (CAN ID=0x%X)\n", request_id);
     uint8_t trigger_data[2] = {0xDE, 0xAD};
-    send_can_frame(sock, request_id, trigger_data, 2);
+    int ret = send_can_frame(sock, request_id, trigger_data, 2);
+    if (ret < 0) {
+        printf("[FOTA] Error: FOTA 진입 신호 송신 실패 (%s)\n", fota_err_str(ret));
+        return ret;
+    }
     printf("[FOTA] 신호 전송 완료. 부트로더 진입 대기 중... (3.0초)\n");
     precise_delay(3.0);
-    flush_rx_buffer(sock);
+    ret = flush_rx_buffer(sock);
+    if (ret < 0) {
+        printf("[FOTA] Error: 진입 대기 중 CAN bus 오류 (%s)\n", fota_err_str(ret));
+        return ret;
+    }
     printf("[FOTA] 부트로더 준비 완료. FOTA 시작!\n");
+    return 0;
 }
