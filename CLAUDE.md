@@ -71,7 +71,7 @@ Cross-compiling (`make CC=arm-linux-gnueabihf-gcc`) is possible via `CC ?= gcc` 
 - Byte 0 = `(cmd << 6) | seq6`. Commands: DATA `0`, START `0x40` (+u32 size LE, DLC 5), END `0x80` (+u32 CRC32 LE, DLC 5), JUMP `0xC0` (DLC 1).
 - DATA: 256 B blocks, 7 B per frame, seq 0–36 per block (resets each block). All integers little-endian.
 - Responses: ACK `0x00 0x00`; NACK `0x40` + 56-bit received bitmap (BBB resends only 0-bits); ERR `0x80 | code` (`0x03`–`0x0B`, see spec).
-- BBB timeouts: START/END 10 s, DATA block 150 ms (resends the last frame to provoke NACK/ACK). DATA retry has no upper bound (TW-03 TODO).
+- BBB timeouts: START/END 10 s, DATA block 150 ms per attempt (resends the last frame to provoke NACK/ACK), 20 retries per block, 120 s DATA phase, JUMP ACK 1 s. TX `ENOBUFS` retried up to 100 ms. Exit code = `fota_err_t` (see `docs/protocol.md`).
 - Integrity: CRC32 (reflected `0xEDB88320`, init/xorout `0xFFFFFFFF`) over the original size. Staging → CRC check → copy to active with the first 8 B (SP + Reset vector) written last → vector/range check. Boot retries the copy from staging if active is invalid.
 - Known limit: no session/block ID, so a lost ACK can desync block boundaries.
 

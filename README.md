@@ -155,7 +155,7 @@ ISO-TP 구현은 UDS가 아니라 ISO-TP transport 위에 자체 START/DATA/END/
 
 ## 다음 단계
 
-- BBB flasher의 retry 상한·deadline과 CAN error 전파 (무한 대기 제거)
+- STM32 응답 CAN ID를 Standard로 통일, `canInit()` 결과 반환, CAN RX drop/bus-off 관찰 (TW-03 B)
 - Host-side protocol/CRC 단위 테스트와 CI firmware build
 - ISO-TP 비교 구현 build 복구
 - Session/block ID를 포함한 protocol v2 (ACK 유실 시 block desync 해결)
