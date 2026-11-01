@@ -27,7 +27,7 @@ STM32F103RB의 firmware를 BeagleBone Black에서 Classic CAN으로 갱신하는
 
 발표자료의 F103 64 KiB 결과는 staging 도입 전의 64 KiB direct-write 구성에서 측정한 값입니다. 이후 memory layout을 16 KiB bootloader와 두 개의 약 56 KiB 영역으로 재설계하면서 현재 Custom firmware 한도는 **57,336 B**가 됐습니다.
 
-캡스톤 연구 자료는 [`capston-1` branch](https://github.com/Wh31028/CanBootloader/tree/capston-1)와 [발표자료](reference/capstone-presentation.pptx)에서 확인할 수 있습니다.
+캡스톤 연구 자료는 [`capston-1` branch](https://github.com/Wh31028/CanBootloader/tree/capston-1)에서 확인할 수 있습니다.
 
 ## 시스템 아키텍처
 
@@ -117,8 +117,7 @@ sequenceDiagram
 ├── boot_can_fw_f103/       # FreeRTOS application
 ├── boot_can_isotp_f103/    # ISO-TP 비교 구현
 ├── can-fota-BBB/           # BBB flasher와 web dashboard
-├── docs/                   # 설계 및 개발 과정 문서
-└── reference/              # 캡스톤 발표자료
+└── docs/                   # 설계 및 개발 과정 문서
 ```
 
 F407 실험 구현과 benchmark script/CSV는 연구 목적의 `capston-1` branch에 보존하고, 현재 `main`에서는 F103 구현에 집중합니다. Yocto layer와 image 구성은 별도 repository에서 관리합니다.
@@ -154,6 +153,13 @@ ISO-TP 구현은 UDS가 아니라 ISO-TP transport 위에 자체 START/DATA/END/
 - BBB dashboard는 FOTA 시연과 진행 상태 관찰을 위한 prototype입니다.
 - ISO-TP와 Custom protocol은 동일한 application command 표준을 구현한 것이 아니라 서로 다른 비교 경로입니다.
 
+## 다음 단계
+
+- BBB flasher의 retry 상한·deadline과 CAN error 전파 (무한 대기 제거)
+- Host-side protocol/CRC 단위 테스트와 CI firmware build
+- ISO-TP 비교 구현 build 복구
+- Session/block ID를 포함한 protocol v2 (ACK 유실 시 block desync 해결)
+
 ## 문서
 
 - [시스템 아키텍처와 FOTA 설계](docs/architecture.md)
@@ -162,11 +168,8 @@ ISO-TP 구현은 UDS가 아니라 ISO-TP transport 위에 자체 START/DATA/END/
 - [F103 Custom FOTA 기준선](docs/f103-fota-baseline.md)
 - [FreeRTOS Application 확장](docs/f103-freertos-application.md)
 - [C 코딩 규칙](docs/coding-style.md)
-- [Sprint 01 리팩토링 경계와 후속 후보](docs/refactoring-plan.md)
-- [신뢰성 개선 마스터 플랜](docs/improvement-plan/README.md)
-- [개선 과정 면접 지식 기록](docs/improvement-plan/interview/README.md)
+- [하드웨어 검증 기록](docs/verification/)
 
 ## 데모 자료
 
-- [캡스톤 발표자료](reference/capstone-presentation.pptx)
 - [BBB Web Dashboard](can-fota-BBB/web_dashboard/)
