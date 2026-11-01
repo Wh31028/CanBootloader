@@ -69,7 +69,7 @@ Custom CAN protocol의 CAN ID, command, sequence, DLC, payload layout은 바꾸�
 | application vector 확인 | **PASS** | MSP `0x20005000`, Reset Handler `0x08005A35`; SRAM/Thumb/active-range 조건 충족 |
 | `git diff --check` | **PASS** | whitespace error 없음 |
 | CTest | **NOT RUN** | 두 build directory에서 실제 실행했지만 모두 `No tests were found!!!` (test target 없음) |
-| BBB SSH preflight | **FAIL** | `ssh -o BatchMode=yes -o ConnectTimeout=10 debian@192.168.7.2 ...`가 connection timeout; BBB에 command를 실행하지 못함 |
+| BBB SSH preflight | **FAIL** | `ssh -o BatchMode=yes -o ConnectTimeout=10 <bbb-user>@<bbb-host> ...`가 connection timeout; BBB에 command를 실행하지 못함 |
 | BBB `can0` preflight | **PASS** | 500 kbit/s, `UP`/`LOWER_UP`, `ERROR-ACTIVE`, TX/RX error counter 0으로 확인. dashboard가 시작 시 interface를 down/up 하므로 trace는 재시작 loop로 수집함 |
 | STM32 programming | **PASS** | ST-LINK V2, NUCLEO-F103RB에서 bootloader `0x08000000` 13.47 KiB 및 application `0x08004000` 9.92 KiB를 각각 write/verify 성공 |
 | BBB + STM32F103RB 정상 Custom FOTA | **PASS** | trace의 `0x100#80817459B2` END, `0x101#0000` END ACK, `0x100#C0` JUMP, `0x101#0000` JUMP ACK; 이후 application LD2가 1초 주기로 toggle |
