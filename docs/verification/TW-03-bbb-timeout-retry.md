@@ -32,10 +32,10 @@ ISO-TP 경로(`isotp_fota.c`)는 수정하지 않았다. 다만 공용 `send_can
 
 ## 시험 환경
 
-- BBB: Yocto `core-image-minimal`(yocto_capston `fac9c45`), kernel 6.6.21, `c_can` `can0` 500 kbit/s, `restart-ms 0`
-- STM32: NUCLEO-F103RB, CanBootloader `62056c3` 기준 bootloader와 application(사전에 flash된 상태)
+- BBB: Yocto `core-image-minimal`(yocto_capston `8546d49`), kernel 6.6.21, `c_can` `can0` 500 kbit/s, `restart-ms 0`
+- STM32: NUCLEO-F103RB, CanBootloader `c70fe5b` 기준 bootloader와 application(사전에 flash된 상태)
 - Flasher: 이 branch를 `make CC=arm-linux-gnueabihf-gcc LDFLAGS=-static`(Ubuntu 22.04 `gcc-arm-linux-gnueabihf` 11.4.0)으로 빌드해 BBB의 임시 디렉터리에서 실행. Yocto recipe의 source 사본은 수정하지 않았다.
-- Firmware: `boot_can_fw_f103` **Debug** build `boot_can_fw.bin` 15,180 B (`62056c3`, Windows STM32Cube for VS Code). 최대 크기 시험은 같은 image 뒤를 `0xFF`로 채운 57,336 B.
+- Firmware: `boot_can_fw_f103` **Debug** build `boot_can_fw.bin` 15,180 B (`c70fe5b`, Windows STM32Cube for VS Code). 최대 크기 시험은 같은 image 뒤를 `0xFF`로 채운 57,336 B.
 - Trace: 각 시험마다 `candump -L can0`. BBB에 RTC가 없어 trace timestamp의 절대 날짜는 의미가 없고, 시간 차이만 사용한다.
 - BBB 커널에 `vcan` module이 없어 모든 시험은 실제 `can0`와 STM32로 수행했다.
 - 장애 유도: NUCLEO RESET(B2) 버튼. 짧게 누르면 target 재부팅(CAN ACK는 하지만 protocol 응답 없음), 누른 채 유지하면 bus에 ACK하는 node가 없음.
