@@ -40,7 +40,13 @@ extern "C"
     CanIdType_t id_type;
   } can_msg_t;
 
+  // Diagnostic counters (see can.c); readable over SWD.
+  extern volatile uint32_t g_can_rx_queue_drop_count;
+  extern volatile uint32_t g_can_rx_fifo_overrun_count;
+  extern volatile uint32_t g_can_busoff_count;
+
   bool canInit(void);
+  bool canIsInit(void);
   uint32_t canAvailable(void);
   bool canMsgRead(can_msg_t *p_mesg);
   bool canMsgWrite(uint32_t id, uint8_t *p_data, uint8_t len);

@@ -37,6 +37,11 @@ void apInit(void)
   cliOpen(_DEF_UART1, 115200);
   cliLogo();
   cliPrintf("[AP] Firmware Running. Waiting for FOTA request on CAN ID 0x200...\n\r");
+  if (!canIsInit())
+  {
+    cliPrintf(
+        "[AP] Error: CAN init failed. FOTA request cannot be received.\n\r");
+  }
 #endif
 }
 
