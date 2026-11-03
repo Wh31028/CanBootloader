@@ -107,7 +107,7 @@ commit하지 않는 임시 build에서 `canInit()`의 `is_init = ret;` 직전에
 | 시험 4a flasher의 exit code | 기록 안 됨 | 시험 script의 quoting 오류로 exit code가 잘못 기록됨. log의 `RESP_TIMEOUT` 메시지만 근거로 사용 |
 | Release build 실장 시험 | NOT RUN | 실장 시험은 Debug build로만 수행 |
 | CLI 경로 컴파일 | NOT RUN | `_USE_HW_CLI` 꺼짐 |
-| bus-off 유도와 recovery 정책 (AutoBusOff, BBB `restart-ms`) | TODO (B2) | 후보: CANH–CANL 단락, BBB bitrate 불일치 |
+| bus-off 유도와 recovery 정책 (AutoBusOff, BBB `restart-ms`) | TODO (B2) | 유도 방법 미정. physical bus short·전압 인가는 하지 않음(상대 node down/disconnect만 사용) |
 | BBB의 Standard-only 응답 filter | TODO | 모든 target 갱신 후. 지금은 이전 firmware 호환을 위해 유지 |
 | target 수신 시 `id_type` 검사 | 범위 밖 | `bootProcess()`는 numeric ID `0x100`만 비교 (Extended `0x100`도 수락) |
 | `SendResponse()`/`SendNackMap()`의 `canMsgWrite()` 반환값 무시 | 범위 밖 | TX mailbox가 가득 차면 응답이 조용히 사라짐. host는 timeout/retry로 처리 |
