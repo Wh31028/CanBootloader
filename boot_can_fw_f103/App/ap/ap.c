@@ -5,6 +5,10 @@
 #include "hw_def.h"
 #include "task.h"
 
+#ifndef APP_LED_TOGGLE_MS
+#define APP_LED_TOGGLE_MS 1000U
+#endif
+
 volatile UBaseType_t g_app_task_stack_high_water_mark_words;
 
 // BKP Register에 Magic Number를 기록하고 소프트 리셋
@@ -49,7 +53,7 @@ void apMain(void)
   while (1)
   {
     // LED 토글 (동작 확인용)
-    if (millis() - pre_time >= 1000) // 펌웨어는 1000ms(1초) 주기로 천천히 깜빡임
+    if (millis() - pre_time >= APP_LED_TOGGLE_MS) // 기본 1000ms, 시연용 FW는 빌드 옵션으로 변경
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);

@@ -83,6 +83,13 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
 
+# Optional LED toggle period override: -DAPP_LED_TOGGLE_MS=<ms>
+if(APP_LED_TOGGLE_MS)
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
+        APP_LED_TOGGLE_MS=${APP_LED_TOGGLE_MS}U
+    )
+endif()
+
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
