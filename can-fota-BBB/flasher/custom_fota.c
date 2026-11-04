@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "can_socket.h"
@@ -15,10 +16,15 @@
 #define CUSTOM_JUMP_DELAY_MS         500
 #define CUSTOM_JUMP_ACK_TIMEOUT_MS   1000
 
+/* Fixed seed: a rehearsed fault run drops the same frames every time. */
+#define CUSTOM_FAULT_RNG_SEED     20261105U
+#define CUSTOM_FAULT_CORRUPT_MASK 0xFF
+
 typedef struct {
     int tx_frames;
     int rx_frames;
     int retransmitted_frames;
+    int dropped_frames;
 } custom_stats_t;
 
 static uint8_t pack_custom_header(uint8_t cmd, uint8_t seq) {
@@ -29,6 +35,24 @@ static uint8_t pack_custom_header(uint8_t cmd, uint8_t seq) {
 static int send_cmd_frame(int sock, const uint8_t *data, uint8_t len, custom_stats_t *stats) {
     int ret = send_can_frame(sock, CUSTOM_CAN_ID_CMD, data, len);
     if (ret == 0) stats->tx_frames++;
+    return ret;
+}
+
+static bool should_drop_frame(const custom_fault_t *fault) {
+    return fault->data_loss_pct > 0.0 &&
+           ((double)rand() / RAND_MAX) * 100.0 < fault->data_loss_pct;
+}
+
+/* Sends a DATA frame unless loss injection drops it; a dropped frame never reaches the bus. */
+static int send_data_frame(int sock, const uint8_t *frame, uint8_t len, bool is_retransmission,
+                           const custom_fault_t *fault, custom_stats_t *stats) {
+    if (should_drop_frame(fault)) {
+        stats->dropped_frames++;
+        printf("\n[FAULT] DATA 프레임 드롭 주입 (seq %d)\n", frame[0] & 0x3F);
+        return 0;
+    }
+    int ret = send_cmd_frame(sock, frame, len, stats);
+    if (ret == 0 && is_retransmission) stats->retransmitted_frames++;
     return ret;
 }
 
@@ -61,12 +85,17 @@ static void print_stats(double start_time, const custom_stats_t *stats) {
     printf("[RESULT] 송신 프레임 (TX): %d 프레임\n", stats->tx_frames);
     printf("[RESULT] 수신 프레임 (RX): %d 프레임\n", stats->rx_frames);
     printf("[RESULT] 재전송 프레임: %d 프레임 (%.2f%% overhead)\n", stats->retransmitted_frames, overhead_pct);
+    if (stats->dropped_frames > 0) {
+        printf("[RESULT] 주입한 프레임 드롭: %d 프레임\n", stats->dropped_frames);
+    }
     print_can_error_stats();
     printf("=============================================\n");
 }
 
-static int send_data_blocks(int sock, const uint8_t *fw_data, size_t fw_size, custom_stats_t *stats) {
+static int send_data_blocks(int sock, const uint8_t *fw_data, size_t fw_size,
+                            const custom_fault_t *fault, custom_stats_t *stats) {
     const double data_deadline = monotonic_now() + CUSTOM_DATA_PHASE_TIMEOUT_MS / 1000.0;
+    const size_t corrupt_offset = fw_size / 2;
     uint8_t rx_cmd;
     uint64_t rx_args;
     int ret;
@@ -87,11 +116,18 @@ static int send_data_blocks(int sock, const uint8_t *fw_data, size_t fw_size, cu
             block_frames[seq][0] = pack_custom_header(CUSTOM_CMD_RX_DATA, seq);
             memcpy(&block_frames[seq][1], &fw_data[idx + chunk_offset], chunk_len);
             frame_lens[seq] = chunk_len + 1;
+
+            size_t frame_start = idx + chunk_offset;
+            if (fault->corrupt_image && corrupt_offset >= frame_start &&
+                corrupt_offset < frame_start + chunk_len) {
+                block_frames[seq][1 + corrupt_offset - frame_start] ^= CUSTOM_FAULT_CORRUPT_MASK;
+                printf("\n[FAULT] 펌웨어 1 byte 손상 주입 (offset %zu)\n", corrupt_offset);
+            }
         }
 
         /* Send block frames */
         for (int seq = 0; seq < expected_frames; seq++) {
-            ret = send_cmd_frame(sock, block_frames[seq], frame_lens[seq], stats);
+            ret = send_data_frame(sock, block_frames[seq], frame_lens[seq], false, fault, stats);
             if (ret < 0) {
                 printf("\n[CAN] Error: DATA 송신 실패 (offset %zu, seq %d, %s)\n", idx, seq, fota_err_str(ret));
                 return ret;
@@ -113,12 +149,11 @@ static int send_data_blocks(int sock, const uint8_t *fw_data, size_t fw_size, cu
                 printf("\n[CAN Warning] 응답 타임아웃! 꼬리 프레임 단독 송출하여 NACK 검사 트리거! (%d/%d)\n",
                        retries, CUSTOM_BLOCK_MAX_RETRIES);
                 int last_seq = expected_frames - 1;
-                ret = send_cmd_frame(sock, block_frames[last_seq], frame_lens[last_seq], stats);
+                ret = send_data_frame(sock, block_frames[last_seq], frame_lens[last_seq], true, fault, stats);
                 if (ret < 0) {
                     printf("[CAN] Error: 꼬리 프레임 재전송 실패 (%s)\n", fota_err_str(ret));
                     return ret;
                 }
-                stats->retransmitted_frames++;
                 continue;
             }
             if (ret < 0) {
@@ -135,16 +170,18 @@ static int send_data_blocks(int sock, const uint8_t *fw_data, size_t fw_size, cu
             } else if (rx_cmd == CUSTOM_CMD_TX_NACK) {
                 if (++retries > CUSTOM_BLOCK_MAX_RETRIES) break;
                 uint64_t nack_map = rx_args;
-                printf("\n[CAN Recovery] NACK 비트맵 수신! 선별 재전송 실행! (%d/%d)\n",
-                       retries, CUSTOM_BLOCK_MAX_RETRIES);
+                printf("\n[CAN Recovery] NACK 비트맵 수신! 누락 seq:");
+                for (int seq = 0; seq < expected_frames; seq++) {
+                    if ((nack_map & ((uint64_t)1 << seq)) == 0) printf(" %d", seq);
+                }
+                printf(" 만 선별 재전송 (%d/%d)\n", retries, CUSTOM_BLOCK_MAX_RETRIES);
                 for (int seq = 0; seq < expected_frames; seq++) {
                     if ((nack_map & ((uint64_t)1 << seq)) == 0) {
-                        ret = send_cmd_frame(sock, block_frames[seq], frame_lens[seq], stats);
+                        ret = send_data_frame(sock, block_frames[seq], frame_lens[seq], true, fault, stats);
                         if (ret < 0) {
                             printf("[CAN] Error: 선별 재전송 실패 (seq %d, %s)\n", seq, fota_err_str(ret));
                             return ret;
                         }
-                        stats->retransmitted_frames++;
                     }
                 }
             } else {
@@ -167,10 +204,18 @@ static int send_data_blocks(int sock, const uint8_t *fw_data, size_t fw_size, cu
 }
 
 /* Main FOTA Processors */
-int start_custom_fota(int sock, const uint8_t *fw_data, size_t fw_size) {
+int start_custom_fota(int sock, const uint8_t *fw_data, size_t fw_size, const custom_fault_t *fault) {
     printf("=============================================\n");
     printf("[CAN] 비트맵 NACK 적용 FOTA Gateway 시작!\n");
     printf("=============================================\n");
+
+    if (fault->data_loss_pct > 0.0) {
+        printf("[FAULT] 패킷 손실 주입 활성화: DATA 프레임 %.2f%%\n", fault->data_loss_pct);
+    }
+    if (fault->corrupt_image) {
+        printf("[FAULT] CRC 실패 시연 활성화: 전송 중 펌웨어 1 byte 손상\n");
+    }
+    srand(CUSTOM_FAULT_RNG_SEED);
 
     int ret = trigger_fota_entry(sock, CUSTOM_CAN_ID_FOTA_REQUEST);
     if (ret < 0) return ret;
@@ -198,7 +243,7 @@ int start_custom_fota(int sock, const uint8_t *fw_data, size_t fw_size) {
     printf("[CAN] Erase 완료! 본격 데이터 전송 시작 🚀\n");
 
     /* 2. DATA */
-    ret = send_data_blocks(sock, fw_data, fw_size, &stats);
+    ret = send_data_blocks(sock, fw_data, fw_size, fault, &stats);
     if (ret < 0) goto out;
 
     /* 3. END */
@@ -221,6 +266,9 @@ int start_custom_fota(int sock, const uint8_t *fw_data, size_t fw_size) {
     ret = expect_ack(sock, CUSTOM_END_ACK_TIMEOUT_MS, "END(CRC/Copy)", &stats);
     if (ret < 0) {
         printf("[CAN] Error: CRC 불일치 또는 복사/End 응답 실패! (벽돌 방지 활성화)\n");
+        if (fault->corrupt_image) {
+            printf("[FAULT] Target이 손상을 거부함. 기존 펌웨어를 유지하고 약 10초 뒤 복귀합니다\n");
+        }
         goto out;
     }
     printf("[CAN] 펌웨어 무결성 최종 통과 및 복사 완료! (CRC Validated & Copied) ✅\n");

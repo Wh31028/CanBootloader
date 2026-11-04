@@ -10,14 +10,40 @@
 int main(int argc, char *argv[]) {
     setbuf(stdout, NULL);
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s <protocol> <firmware_path> [interface_name]\n", argv[0]);
-        fprintf(stderr, "Protocols: custom, isotp\n");
+        fprintf(stderr, "Usage: %s <protocol> <firmware_path> [interface_name] [--loss <pct>] [--corrupt-image]\n", argv[0]);
+        fprintf(stderr, "Protocols: custom, isotp (fault options: custom only)\n");
         return 1;
     }
 
     const char *protocol = argv[1];
     const char *firmware_path = argv[2];
-    const char *interface_name = (argc >= 4) ? argv[3] : "can0";
+    const char *interface_name = "can0";
+    custom_fault_t fault = {0};
+
+    int arg_idx = 3;
+    if (arg_idx < argc && argv[arg_idx][0] != '-') {
+        interface_name = argv[arg_idx++];
+    }
+    for (; arg_idx < argc; arg_idx++) {
+        if (strcmp(argv[arg_idx], "--corrupt-image") == 0) {
+            fault.corrupt_image = true;
+        } else if (strcmp(argv[arg_idx], "--loss") == 0 && arg_idx + 1 < argc) {
+            char *end = NULL;
+            fault.data_loss_pct = strtod(argv[++arg_idx], &end);
+            if (end == argv[arg_idx] || *end != '\0' ||
+                !(fault.data_loss_pct >= 0.0 && fault.data_loss_pct <= 100.0)) {
+                fprintf(stderr, "Invalid loss percentage: %s\n", argv[arg_idx]);
+                return 1;
+            }
+        } else {
+            fprintf(stderr, "Unknown or incomplete option: %s\n", argv[arg_idx]);
+            return 1;
+        }
+    }
+    if ((fault.corrupt_image || fault.data_loss_pct > 0.0) && strcmp(protocol, "custom") != 0) {
+        fprintf(stderr, "Fault options require the custom protocol\n");
+        return 1;
+    }
 
     /* Read Firmware File */
     FILE *f = fopen(firmware_path, "rb");
@@ -62,7 +88,7 @@ int main(int argc, char *argv[]) {
     /* Execute Protocol */
     int result = -1;
     if (strcmp(protocol, "custom") == 0) {
-        result = start_custom_fota(sock, fw_data, fw_size);
+        result = start_custom_fota(sock, fw_data, fw_size, &fault);
     } else if (strcmp(protocol, "isotp") == 0) {
         result = start_isotp_fota(sock, fw_data, fw_size);
     } else {
