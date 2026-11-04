@@ -82,6 +82,7 @@
             50% { opacity: 0.5; transform: scale(1.2); }
             100% { opacity: 1; transform: scale(1); }
         }
+        #canTable.faults-only .can-normal { display: none; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -127,8 +128,8 @@
                     <div>
                         <label class="block text-xs text-slate-400 mb-1">TARGET BOARD</label>
                         <select id="boardSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-neonCyan focus:border-neonCyan block p-2.5">
-                            <option value="f407">STM32F407 (Default)</option>
-                            <option value="f103">STM32F103 (Nucleo)</option>
+                            <option value="f407">STM32F407</option>
+                            <option value="f103" selected>STM32F103 (Nucleo)</option>
                         </select>
                     </div>
 
@@ -145,12 +146,23 @@
                     <div>
                         <label class="block text-xs text-slate-400 mb-1">PROTOCOL SELECTION</label>
                         <select id="protocolSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-neonCyan focus:border-neonCyan block p-2.5">
-                            <option value="custom">Custom Protocol (Selective NACK)</option>
+                            <option value="custom">Proposed (Selective NACK)</option>
                             <option value="isotp">Standard ISO-TP (Baseline)</option>
                         </select>
                     </div>
 
-                    <div class="flex gap-2">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">FAULT INJECTION (DEMO)</label>
+                        <select id="faultSelect" class="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-neonCyan focus:border-neonCyan block p-2.5">
+                            <option value="none" selected>None (Normal Update)</option>
+                            <option value="loss1">Packet Loss 1%</option>
+                            <option value="loss2">Packet Loss 2%</option>
+                            <option value="loss5">Packet Loss 5%</option>
+                            <option value="crc">CRC Failure (Corrupted Image)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex gap-2 md:col-span-2">
                         <button id="uploadBtn" onclick="uploadFirmware()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg text-sm px-5 py-2.5 transition-colors border border-slate-600">
                             1. Upload
                         </button>
@@ -266,7 +278,11 @@
                         <span class="w-2 h-2 rounded-full bg-neonCyan"></span>
                         RAW CAN ANALYZER
                     </h2>
-                    <div class="flex gap-3 text-xs text-slate-400 font-mono">
+                    <div class="flex gap-3 items-center text-xs text-slate-400 font-mono">
+                        <span class="text-red-400">DROP <span id="canDropCount">0</span></span>
+                        <span class="text-amber-300">NACK <span id="canNackCount">0</span></span>
+                        <span class="text-orange-400">RETX <span id="canRetxCount">0</span></span>
+                        <button id="faultsOnlyBtn" onclick="toggleFaultsOnly()" class="px-2 py-0.5 rounded border border-slate-600 hover:bg-slate-700">FAULTS ONLY</button>
                         <span id="canPps">0 pps</span>
                         <span id="canLoad">0% Load</span>
                     </div>
@@ -282,6 +298,83 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- CAN ID Reference Card -->
+    <div class="glass-card p-6 mt-6">
+        <h2 class="text-lg font-semibold mb-1 text-slate-200">CAN ID REFERENCE (PROPOSED)</h2>
+        <p class="text-xs text-slate-400 mb-4">DATA 열은 RAW CAN ANALYZER에 표시되는 값(HEX)입니다. 빨간색 DROPPED 행은 시연용으로 주입한 손실 기록이며, 해당 frame은 버스에 나가지 않습니다.</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-200">
+                <thead>
+                    <tr class="border-b border-slate-700 text-slate-400 tracking-wider">
+                        <th class="py-2 pr-4">CAN ID</th>
+                        <th class="py-2 pr-4">방향</th>
+                        <th class="py-2 pr-4">종류</th>
+                        <th class="py-2 pr-4">DATA</th>
+                        <th class="py-2">의미</th>
+                    </tr>
+                </thead>
+                <tbody>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-amber-400">0x200</td>
+                            <td class="py-2 pr-4 text-slate-400">BBB → STM32</td>
+                            <td class="py-2 pr-4 font-semibold">FOTA 진입</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">DE AD</td>
+                            <td class="py-2 text-slate-300">실행 중인 FW를 리셋해 부트로더로 진입시킴</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-blue-400">0x100</td>
+                            <td class="py-2 pr-4 text-slate-400">BBB → STM32</td>
+                            <td class="py-2 pr-4 font-semibold">START</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">40 + size(4B)</td>
+                            <td class="py-2 text-slate-300">펌웨어 크기를 알리고 staging 영역을 지움</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-blue-400">0x100</td>
+                            <td class="py-2 pr-4 text-slate-400">BBB → STM32</td>
+                            <td class="py-2 pr-4 font-semibold">DATA</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">00~24 + data(7B)</td>
+                            <td class="py-2 text-slate-300">첫 바이트가 seq 0~36. 256 B block을 frame 37개로 나눠 전송</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-blue-400">0x100</td>
+                            <td class="py-2 pr-4 text-slate-400">BBB → STM32</td>
+                            <td class="py-2 pr-4 font-semibold">END</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">80 + CRC32(4B)</td>
+                            <td class="py-2 text-slate-300">전체 CRC32를 보내고 무결성 검증과 실행 영역 복사를 요청</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-blue-400">0x100</td>
+                            <td class="py-2 pr-4 text-slate-400">BBB → STM32</td>
+                            <td class="py-2 pr-4 font-semibold">JUMP</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">C0</td>
+                            <td class="py-2 text-slate-300">검증된 새 펌웨어 실행을 요청</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-green-400">0x101</td>
+                            <td class="py-2 pr-4 text-slate-400">STM32 → BBB</td>
+                            <td class="py-2 pr-4 font-semibold">ACK</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">00 00</td>
+                            <td class="py-2 text-slate-300">block 또는 명령을 정상 처리함</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-green-400">0x101</td>
+                            <td class="py-2 pr-4 text-slate-400">STM32 → BBB</td>
+                            <td class="py-2 pr-4 font-semibold">NACK</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">40 + bitmap(7B)</td>
+                            <td class="py-2 text-slate-300">수신 비트맵을 보고. 0인 비트의 frame만 재전송</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4 font-bold font-mono text-green-400">0x101</td>
+                            <td class="py-2 pr-4 text-slate-400">STM32 → BBB</td>
+                            <td class="py-2 pr-4 font-semibold">ERR</td>
+                            <td class="py-2 pr-4 font-mono text-slate-300">80 | code</td>
+                            <td class="py-2 text-slate-300">오류 응답. 86 = CRC 불일치로 새 펌웨어 거부</td>
+                        </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -374,6 +467,7 @@
             // Highlight specific logs
             if(text.includes('Error') || text.includes('failed')) colorClass = 'text-red-400';
             if(text.includes('NACK')) colorClass = 'text-amber-400';
+            if(text.includes('[FAULT]')) colorClass = 'text-fuchsia-400';
             if(text.includes('Success')) colorClass = 'text-neonGreen';
 
             line.className = colorClass;
@@ -400,26 +494,58 @@
             }
         }
 
+        // The flasher argument stays "custom"; the poster and UI call this protocol "Proposed".
+        const PROTOCOL_LABELS = { custom: 'PROPOSED', isotp: 'ISO-TP' };
+
         let packetCount = 0;
-        let lastTime = Date.now();
+
+        const CAN_FRAME_BITS = 140;
+        const CAN_BUS_BITRATE_BPS = 500000;
+        const CAN_MAX_NORMAL_ROWS = 100;
+        const CAN_MAX_EVENT_ROWS = 300;
+        const CAN_EVENT_COLORS = {
+            drop: 'text-red-400 bg-red-500/10 font-bold',
+            nack: 'text-amber-300 bg-amber-500/10',
+            retx: 'text-orange-400',
+            err: 'text-red-400 bg-red-500/20 font-bold'
+        };
+        const CAN_EVENT_COUNTERS = { drop: 'canDropCount', nack: 'canNackCount', retx: 'canRetxCount' };
+
+        // Runs on a timer so the rate falls to zero when the bus goes quiet
+        function updateCanRate() {
+            const pps = packetCount;
+            packetCount = 0;
+            document.getElementById('canPps').textContent = `${pps} pps`;
+
+            // Very rough estimation: pps * max frame size / bus bitrate
+            const load = ((pps * CAN_FRAME_BITS) / CAN_BUS_BITRATE_BPS) * 100;
+            document.getElementById('canLoad').textContent = `${load.toFixed(1)}% Load`;
+        }
+        setInterval(updateCanRate, 1000);
+
+        function toggleFaultsOnly() {
+            const active = document.getElementById('canTable').classList.toggle('faults-only');
+            document.getElementById('faultsOnlyBtn').classList.toggle('bg-slate-600', active);
+        }
+
+        function resetCanAnalyzer() {
+            document.getElementById('canTable').innerHTML = '';
+            Object.values(CAN_EVENT_COUNTERS).forEach(id => {
+                document.getElementById(id).textContent = '0';
+            });
+        }
+
+        function trimCanRows(table, selector, maxRows) {
+            const rows = table.querySelectorAll(selector);
+            for (let i = rows.length - 1; i >= maxRows; i--) {
+                table.removeChild(rows[i]);
+            }
+        }
         
         function handleCanFrames(frames, count) {
             const table = document.getElementById('canTable');
-            const now = Date.now();
-            
-            // Calculate PPS and Load every second
-            packetCount += (count || frames.length);
-            if (now - lastTime >= 1000) {
-                const pps = packetCount;
-                document.getElementById('canPps').textContent = `${pps} pps`;
-                
-                // Very rough estimation: (pps * max frame size ~140 bits) / 1,000,000 bits per sec
-                const load = ((pps * 140) / 1000000) * 100;
-                document.getElementById('canLoad').textContent = `${load.toFixed(1)}% Load`;
-                
-                packetCount = 0;
-                lastTime = now;
-            }
+
+            packetCount += (count ?? frames.length);
 
             // Create fragment to batch DOM inserts
             const fragment = document.createDocumentFragment();
@@ -434,24 +560,32 @@
                 if(f.id === '0x100' || f.id === '0x7E0') color = 'text-blue-400'; // Host -> Target
                 if(f.id === '0x101' || f.id === '0x7E8') color = 'text-green-400'; // Target -> Host
                 if(f.id === '0x200') color = 'text-amber-400'; // Special triggers
+                if(f.event) {
+                    color = CAN_EVENT_COLORS[f.event];
+                    const counterId = CAN_EVENT_COUNTERS[f.event];
+                    if(counterId) {
+                        const counter = document.getElementById(counterId);
+                        counter.textContent = Number(counter.textContent) + 1;
+                    }
+                }
 
-                row.className = `flex gap-4 hover:bg-slate-800/50 px-2 py-1 ${color}`;
+                row.className = `${f.event ? 'can-event' : 'can-normal'} flex gap-4 hover:bg-slate-800/50 px-2 py-1 ${color}`;
                 row.innerHTML = `
                     <div class="w-20 text-slate-500">${timeStr}</div>
                     <div class="w-16 font-bold">${f.id}</div>
                     <div class="w-8">${f.dlc}</div>
-                    <div class="flex-1 tracking-widest">${f.data}</div>
+                    <div class="flex-1 tracking-widest">${[f.text, f.data].filter(Boolean).join(' | ')}</div>
                 `;
-                fragment.appendChild(row);
+                // The table is flex-col-reverse, so the newest row must come first in the DOM
+                fragment.insertBefore(row, fragment.firstChild);
             });
 
             // Prepend new rows
             table.insertBefore(fragment, table.firstChild);
             
-            // Keep only the latest 100 rows to prevent memory leak and lag
-            while (table.children.length > 100) {
-                table.removeChild(table.lastChild);
-            }
+            // Bound row counts separately so fault events outlive ordinary traffic
+            trimCanRows(table, '.can-normal', CAN_MAX_NORMAL_ROWS);
+            trimCanRows(table, '.can-event', CAN_MAX_EVENT_ROWS);
         }
 
         // Actions
@@ -497,19 +631,22 @@
             const protocol = document.getElementById('protocolSelect').value;
             const board = document.getElementById('boardSelect').value;
             const bitrate = document.getElementById('bitrateSelect').value;
+            const fault = document.getElementById('faultSelect').value;
             const btn = document.getElementById('startBtn');
             
-            document.getElementById('activeProtocolText').textContent = `${protocol.toUpperCase()} (${board.toUpperCase()})`;
+            document.getElementById('activeProtocolText').textContent = `${PROTOCOL_LABELS[protocol]} (${board.toUpperCase()})`;
             document.getElementById('rateText').textContent = '-- kbps'; // Reset rate text
             window.lastBytesTime = null; // Reset rate timer
             setProgress(0);
+            resetCanAnalyzer();
             
             if(ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     action: 'start_update',
                     protocol: protocol,
                     board: board,
-                    bitrate: bitrate
+                    bitrate: bitrate,
+                    fault: fault
                 }));
             } else {
                 alert("WebSocket is not connected.");
