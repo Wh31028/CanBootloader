@@ -30,9 +30,9 @@ Application에서 bootloader로 전환하는 entry frame은 Custom과 ISO-TP가 
 
 ### Standard/Extended ID 주의
 
-Host `send_can_frame()`은 `CAN_EFF_FLAG`를 넣지 않으므로 Standard frame을 전송합니다. 반면 F103 Custom target의 공용 `canMsgWrite()`는 response `0x101`을 Extended frame으로 설정합니다. BBB는 수신 시 `CAN_SFF_MASK`로 numeric 11 bits만 비교하므로 현재 pair에서는 response를 받아들입니다.
+Custom protocol의 모든 frame은 Standard 11-bit ID를 사용합니다. Host `send_can_frame()`은 `CAN_EFF_FLAG`를 넣지 않고, F103 `canMsgWrite()`는 TW-03 B부터 response `0x101`을 Standard frame(`IDE = CAN_ID_STD`)으로 보냅니다. `canMsgWrite()`는 `0x7FF`보다 큰 ID와 8 bytes를 넘는 DLC를 거부합니다.
 
-이것은 logical ID가 일치한다는 뜻이지 frame format이 일관된 것은 아닙니다. 현재 BBB parser가 numeric ID만 비교하기 때문에 동작하지만, strict CAN filter를 사용하는 다른 tool과의 interoperability에는 제약이 있습니다. ISO-TP F103 port는 `0x7E0/0x7E8`을 Standard ID로 명시합니다.
+TW-03 B 이전 firmware는 response를 Extended frame으로 보냈습니다(`candump`에서 `00000101#...`). BBB는 수신 시 `CAN_SFF_MASK`로 numeric 11 bits만 비교하므로 이전·이후 target 모두와 호환됩니다. Host에서 Standard-only로 엄격하게 filter하는 것은 target이 모두 갱신된 뒤의 별도 작업입니다. ISO-TP F103 port는 `0x7E0/0x7E8`을 Standard ID로 명시합니다.
 
 ## Custom header
 
@@ -288,7 +288,7 @@ ISO bootloader는 최대 112 KiB를 선언하지만 현재 `boot_can_fw_f103` li
 
 ## 설계상 한계
 
-- Custom response는 Extended ID, request는 Standard ID를 사용합니다.
+- Host는 response의 frame format(Standard/Extended)을 검사하지 않고 numeric ID만 비교합니다.
 - Host와 target이 firmware size와 4-byte alignment를 완전하게 검증하지 않습니다.
 - Explicit session ID와 block index가 없어 ACK 유실이나 stale frame을 식별하기 어렵습니다.
 - DATA retry에 횟수 상한이 없습니다.

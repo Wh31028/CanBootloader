@@ -4,6 +4,22 @@
 
 static bool fota_timeout_enable = false;
 
+// CAN init failed, so FOTA cannot work. Run the existing app if it is valid;
+// otherwise keep the LED on and wait for reset instead of a silent FOTA mode.
+static void bootHandleCanInitFail(void)
+{
+  if (bootVerifyFw() == true)
+  {
+    delay(50);
+    JumpToFw();
+  }
+
+  ledOn(_DEF_LED1);
+  while (1)
+  {
+  }
+}
+
 // RTC Backup Register DR0에서 Magic Number 확인 후 플래그 초기화
 static bool checkFotaRequest(void)
 {
@@ -83,6 +99,14 @@ void apInit(void)
     cliPrintf("[BOOT] FOTA request detected! Entering FOTA mode.\n\r");
 #endif
     fota_timeout_enable = true; // 통신 유실 대비 타임아웃 활성화
+  }
+
+  if (!canIsInit())
+  {
+#ifdef _USE_HW_CLI
+    cliPrintf("[BOOT Error] CAN init failed. FOTA unavailable.\n\r");
+#endif
+    bootHandleCanInitFail();
   }
 
   // FOTA 모드: 부트로더 초기화

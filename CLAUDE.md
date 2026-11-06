@@ -63,7 +63,8 @@ Cross-compiling (`make CC=arm-linux-gnueabihf-gcc`) is possible via `CC ?= gcc` 
 - Bitrate 500 kbit/s on both sides: `ip link set can0 up type can bitrate 500000`. STM32 bxCAN: APB1 36 MHz, Prescaler 4, BS1 14 tq, BS2 3 tq.
 - Interface `can0`. STM32 CAN pins PA11 (RX) / PA12 (TX), no remap.
 - IDs: `0x200` FOTA entry (shared); Custom `0x100` BBB→STM32 cmd, `0x101` STM32→BBB response; ISO-TP `0x7E0` / `0x7E8` (Standard).
-- BBB sends Standard IDs, but the F103 `canMsgWrite()` sends **Extended** IDs, so the response appears as `00000101` in `candump`. BBB matches it only because it masks with `CAN_SFF_MASK`.
+- All Custom frames use Standard 11-bit IDs. Since TW-03 B the F103 `canMsgWrite()` sends Standard frames (response `101#...` in `candump`); older target firmware sent Extended (`00000101#...`). BBB masks with `CAN_SFF_MASK`, so it accepts both.
+- F103 CAN diagnostics (bootloader and app): `g_can_rx_queue_drop_count`, `g_can_rx_fifo_overrun_count`, `g_can_busoff_count`. The bootloader has no UART/CLI output, so read them over SWD (address from `arm-none-eabi-nm`). `canInit()` returns the real init result; the bootloader jumps to a valid app (or halts with LED on) instead of entering FOTA mode when CAN init fails.
 
 ## Custom FOTA protocol (details: `docs/protocol.md`)
 
@@ -97,7 +98,7 @@ BBB flasher, and `docs/protocol.md` together.
 1. Build every changed target (commands above) and check the memory usage summary.
 2. On the BBB: `ip -details link show can0` should show `UP`, `ERROR-ACTIVE`, and bitrate 500000.
 3. Trace: `candump -L can0` (run in another terminal; restart it if the dashboard resets `can0`).
-4. Manual entry: `cansend can0 200#DEAD`, then send commands within 3 s, e.g. `cansend can0 100#C0` with no START should return `ERR 0x07` (`00000101#8700` in `candump`).
+4. Manual entry: `cansend can0 200#DEAD`, then send commands within 3 s, e.g. `cansend can0 100#C0` with no START should return `ERR 0x07` (`101#8700` in `candump`; `00000101#8700` with pre-TW-03 B firmware).
 5. Full update: `./can_fota_flasher custom boot_can_fw.bin can0`. Expect ACK per block, END `0x101#0000`, JUMP ACK, then LD2 (PA5) blinking at 1 s.
 6. Record results in `docs/verification/` and label hardware runs separately from builds.
 
