@@ -1,6 +1,7 @@
 #ifndef _ISOTP_PORT_H_
 #define _ISOTP_PORT_H_
 
+#include <stdint.h>
 #include "iso15765/isotp.h"
 #include "stm32f1xx_hal.h"
 
