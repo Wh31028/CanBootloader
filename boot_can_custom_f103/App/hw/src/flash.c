@@ -128,7 +128,7 @@ bool flashRead(uint32_t addr, uint8_t *p_data, uint32_t length)
 }
 
 #ifdef _USE_HW_CLI
-void cliFlash(cli_args_t *args)
+static void cliFlash(cli_args_t *args)
 {
   bool ret = false;
 

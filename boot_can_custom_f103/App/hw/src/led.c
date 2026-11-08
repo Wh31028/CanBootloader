@@ -62,7 +62,7 @@ void ledToggle(uint8_t ch)
 }
 
 #ifdef _USE_HW_CLI
-void ledCmd(cli_args_t *args)
+static void ledCmd(cli_args_t *args)
 {
   bool ret = false;
 

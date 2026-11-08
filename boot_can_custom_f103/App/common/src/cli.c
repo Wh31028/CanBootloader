@@ -206,7 +206,7 @@ void cliShowLog(cli_t *p_cli)
   }
 }
 
-void cliShowPrompt(cli_t *p_cli)
+static void cliShowPrompt(cli_t *p_cli)
 {
   uartPrintf(p_cli->ch, "\n\r");
   uartPrintf(p_cli->ch, CLI_PROMPT_STR);
@@ -252,7 +252,7 @@ uint32_t cliWrite(uint8_t *p_data, uint32_t length)
   return uartWrite(cli_node.ch, p_data, length);
 }
 
-bool cliUpdate(cli_t *p_cli, uint8_t rx_data)
+static bool cliUpdate(cli_t *p_cli, uint8_t rx_data)
 {
   bool ret = false;
   uint8_t tx_buf[8];
@@ -464,7 +464,7 @@ bool cliUpdate(cli_t *p_cli, uint8_t rx_data)
   return ret;
 }
 
-void cliLineClean(cli_t *p_cli)
+static void cliLineClean(cli_t *p_cli)
 {
   p_cli->line.count   = 0;
   p_cli->line.cursor  = 0;
@@ -472,7 +472,7 @@ void cliLineClean(cli_t *p_cli)
   p_cli->line.buf[0]  = 0;
 }
 
-void cliLineAdd(cli_t *p_cli)
+static void cliLineAdd(cli_t *p_cli)
 {
 
   p_cli->line_buf[p_cli->hist_line_last] = p_cli->line;
@@ -487,7 +487,7 @@ void cliLineAdd(cli_t *p_cli)
   p_cli->hist_line_new  = true;
 }
 
-void cliLineChange(cli_t *p_cli, int8_t key_up)
+static void cliLineChange(cli_t *p_cli, int8_t key_up)
 {
   uint8_t change_i;
 
@@ -529,7 +529,7 @@ void cliLineChange(cli_t *p_cli, int8_t key_up)
   p_cli->hist_line_new = false;
 }
 
-bool cliRunCmd(cli_t *p_cli)
+static bool cliRunCmd(cli_t *p_cli)
 {
   bool ret = false;
 
@@ -557,7 +557,7 @@ bool cliRunCmd(cli_t *p_cli)
   return ret;
 }
 
-bool cliParseArgs(cli_t *p_cli)
+static bool cliParseArgs(cli_t *p_cli)
 {
   bool ret = false;
   char *tok;
@@ -625,7 +625,7 @@ void cliPutch(uint8_t data)
   uartWrite(p_cli->ch, &data, 1);
 }
 
-void cliToUpper(char *str)
+static void cliToUpper(char *str)
 {
   uint16_t i;
   uint8_t  str_ch;
@@ -652,7 +652,7 @@ void cliToUpper(char *str)
   }
 }
 
-int32_t cliArgsGetData(uint8_t index)
+static int32_t cliArgsGetData(uint8_t index)
 {
   int32_t ret = 0;
   cli_t *p_cli = &cli_node;
@@ -668,7 +668,7 @@ int32_t cliArgsGetData(uint8_t index)
   return ret;
 }
 
-float cliArgsGetFloat(uint8_t index)
+static float cliArgsGetFloat(uint8_t index)
 {
   float ret = 0.0;
   cli_t *p_cli = &cli_node;
@@ -684,7 +684,7 @@ float cliArgsGetFloat(uint8_t index)
   return ret;
 }
 
-char *cliArgsGetStr(uint8_t index)
+static char *cliArgsGetStr(uint8_t index)
 {
   char *ret = NULL;
   cli_t *p_cli = &cli_node;
@@ -700,7 +700,7 @@ char *cliArgsGetStr(uint8_t index)
   return ret;
 }
 
-bool cliArgsIsStr(uint8_t index, const char *p_str)
+static bool cliArgsIsStr(uint8_t index, const char *p_str)
 {
   bool ret = false;
   cli_t *p_cli = &cli_node;
