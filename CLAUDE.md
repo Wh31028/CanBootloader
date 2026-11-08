@@ -29,7 +29,7 @@ repository, not here. Keep this repo's docs focused on design and verification e
 
 Yocto layer lives in a separate repository (known source drift vs. `can-fota-BBB/`).
 Known leftovers, do not "fix" unasked: stale `boot_can_isotp` entry in `.gitmodules`,
-`boot_can_custom_f103/boot_can_isotp_f103.ioc` filename, unused `Core/Src/system_stm32f4xx.c`.
+`boot_can_custom_f103/boot_can_isotp_f103.ioc` filename.
 
 ## Build
 
