@@ -41,7 +41,7 @@ cd boot_can_fw_f103     && cmake --preset Release && cmake --build --preset Rele
 ```
 
 - Without a build type, `CMakeLists.txt` defaults to `MinSizeRel`.
-- ISO-TP build failed at `isotp_port.c` in TW-00; fixing it is TW-04 (TODO). Run `git submodule update --init` first.
+- ISO-TP: run `git submodule update --init` first. Builds since TW-04 (`isotp_port.h` now includes `<stdint.h>` before `isotp.h`; see `docs/verification/TW-04-isotp-build.md`). Its `CMakeLists.txt` forces `MinSizeRel` and `-Os`, so the `Debug`/`Release` presets produce the same binary.
 - F103 builds must use STM32F1 HAL/CMSIS, `startup_stm32f103xb.s`, `system_stm32f1xx.c`, define `STM32F103xB`. Never add F4 sources.
 
 BBB flasher: build natively on the BBB (needs Linux `linux/can.h`; does not build on macOS):
