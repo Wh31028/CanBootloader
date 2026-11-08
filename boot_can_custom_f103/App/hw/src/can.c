@@ -96,7 +96,7 @@ bool canIsInit(void) { return is_init; }
 
 //-- 필터 함수 구현
 //
-bool canInitFilter(void)
+static bool canInitFilter(void)
 {
   bool ret = false;
   CAN_FilterTypeDef sFilterConfig;
@@ -165,7 +165,7 @@ bool canMsgWrite(uint32_t id, uint8_t *p_data, uint8_t len)
 //-- Fifo 콜백 함수
 //
 
-void canFifoCallback(CAN_HandleTypeDef *p_hcan)
+static void canFifoCallback(CAN_HandleTypeDef *p_hcan)
 {
   CAN_RxHeaderTypeDef rx_header;
   can_msg_t can_msg;
@@ -205,7 +205,7 @@ static void canErrorCallback(CAN_HandleTypeDef *p_hcan)
   (void)HAL_CAN_ResetError(p_hcan);
 }
 #ifdef _USE_HW_CLI
-void cliCmd(cli_args_t *args)
+static void cliCmd(cli_args_t *args)
 {
   bool ret = false;
 

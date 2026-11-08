@@ -375,7 +375,7 @@ uint32_t bootGetLastRxTime(void)
 }
 
 // 응답 헤더 구성 후 전송
-void SendResponse(uint8_t cmd, uint8_t result_or_seq)
+static void SendResponse(uint8_t cmd, uint8_t result_or_seq)
 {
   uint8_t data[2];
   data[0] = PACK_HEADER(cmd, result_or_seq);
