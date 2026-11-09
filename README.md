@@ -141,9 +141,24 @@ ISO-TP 구현은 UDS가 아니라 ISO-TP transport 위에 자체 START/DATA/END/
 | 캡스톤 protocol 비교 | F407/F103에서 loss rate와 firmware size 조건별 Custom/ISO-TP 비교 수행 | `capston-1`의 test script, CSV, graph와 발표자료 |
 | F103 Custom 기준선 | 실제 board에서 FOTA와 전송 중단 후 기존 application boot 확인 | [F103 Custom FOTA 기준선](docs/f103-fota-baseline.md) |
 | FreeRTOS application | Scheduler, LED, CAN FOTA entry, `ECU_READY` 동작 확인 | [FreeRTOS application 확장](docs/f103-freertos-application.md) |
-| 현재 source build | Custom bootloader와 application build 성공 | GNU Arm 15.2.1 기준, hardware 재시험은 수행하지 않음 |
+| 현재 `main` 정상 update | `6972058` Release build를 BBB에서 Custom으로 1회 update, exit 0, 재전송 0 | [TW-05 검토](docs/verification/TW-05-review.md) ① |
 
-발표 성능 수치는 당시 direct-write 시험 구성의 결과이며 현재 staging layout의 성능 수치로 사용하지 않습니다.
+발표 성능 수치는 당시 direct-write 시험 구성의 결과이며 현재 staging layout의 성능 수치로 사용하지 않습니다. 인용 조건은 아래 표에 정리했습니다.
+
+## 검증 조건과 한계
+
+| 항목 | 상태 | 조건 / 한계 | 근거 |
+| --- | --- | --- | --- |
+| 캡스톤 성능 수치 (16.0 s → 9.4 s, 재전송 약 1,424 → 35) | 조건부 인용 | F407 direct-write, 1 Mbit/s, 256 KiB, 송신 측 software omission 0.1%(seed 미기록), 조건당 30회. 비교 대상은 150 ms timeout 후 block 전체를 재시도하는 실험 sender이며 표준 ISO-TP 일반이 아님. 재전송 수는 두 방식의 counter 정의가 다름(block 재시도 × 37 추정 vs 실제 재송신). CSV를 만든 code는 실행 당시 commit되지 않음 | [TW-05](docs/verification/TW-05-review.md) ② |
+| F103 정상 update | PASS | 500 kbit/s, 무손실. 10,284 B(TW-05), 15,180 B·최대 57,336 B(TW-03). 시간은 참고값이며 반복 측정 아님 | TW-03, TW-05 ① |
+| 입력 검증 | PASS | START size 0 / 57,337 B, DLC 오류, 순서 오류(IDLE DATA/END/JUMP), 잘못된 sequence → ERR, Flash 변경 없음 | [TW-01](docs/verification/TW-01-target-input-state.md) |
+| 전송 실패 경로 | PASS | `can0` down, 전송 중 target reset, 무응답 → 원인별 exit code로 종료, 기존 application 유지 | [TW-03](docs/verification/TW-03-bbb-timeout-retry.md) |
+| Selective NACK 재전송 | 실장 미검증 | F103 실장 시험에서는 손실이 없어 NACK이 한 번도 발생하지 않음. 근거는 code와 F407 실험뿐 | TW-03 |
+| 복사 중 reset / 전원 차단 복구 | NOT RUN | vector-last write와 staging 재복사는 구현만 되어 있음 | [TW-02](docs/verification/TW-02-flash-copy-boot-validation.md) |
+| invalid SP/PC image jump 거부, 1~3 B tail | NOT RUN | negative image를 전송하지 않음 | TW-02 |
+| block ACK 유실 | 알려진 한계, 재현 안 함 | session/block ID가 없어 ACK 유실 시 host와 target의 block 위치가 어긋날 수 있음 | [protocol](docs/protocol.md) |
+| bus-off | NOT RUN | 보유 장비로 안전하게 유도하지 못함. counter만 추가 | TW-03 |
+| Firmware 인증 | 범위 밖 | CRC32는 오류 검출만 하고 발행자를 인증하지 않음 | — |
 
 ## 현재 구현 범위
 
@@ -155,9 +170,7 @@ ISO-TP 구현은 UDS가 아니라 ISO-TP transport 위에 자체 START/DATA/END/
 
 ## 다음 단계
 
-- STM32 응답 CAN ID를 Standard로 통일, `canInit()` 결과 반환, CAN RX drop/bus-off 관찰 (TW-03 B)
 - Host-side protocol/CRC 단위 테스트와 CI firmware build
-- ISO-TP 비교 구현 build 복구
 - Session/block ID를 포함한 protocol v2 (ACK 유실 시 block desync 해결)
 
 ## 문서
