@@ -3,7 +3,7 @@
 ## 한눈에 보기
 
 - 범위(2차 축소): ① `main` clean build 후 BBB → F103 Custom 정상 update 1회 ② 이력서 성능 수치의 측정 조건·한계 확정 ③ README 조건·한계 표.
-- 진행 상태: **② 완료(문서 분석, hardware 불필요)**. ①·③은 아직 하지 않았다(`NOT RUN`).
+- 진행 상태: **① PASS(2026-11-09, F103 Release, 1회)**, **② 완료(문서 분석, hardware 불필요)**. ③은 아직 하지 않았다(`NOT RUN`).
 - ② 결론: 이력서 수치(0.1% 손실, 16.011 s → 9.362 s, 재전송 1,424.5 → 35.3)는 결과 CSV에서 그대로 재현된다. 다만 CSV를 만든 code는 실행 당시 commit되어 있지 않았고, 두 방식의 시간 경계와 재전송 counter 정의가 다르다. 수치는 아래 조건을 붙여서만 인용한다.
 
 ## ② 성능 수치의 조건과 한계
@@ -97,7 +97,68 @@ git grep -n "random.seed" b1f32a3 -- can-fota-BBB/        # 0건
 
 ## ① 정상 update 1회
 
-`NOT RUN` (다음 세션, Windows + WSL).
+결과: **PASS** (2026-11-09, hardware, 1회).
+
+### 환경
+
+| 항목 | 값 |
+| --- | --- |
+| Target | NUCLEO-F103RB, ST-LINK V2-1 (FW V2J46M31) |
+| Host | BBB (`beaglebone-yocto`, Linux 6.6.21), `can0` `c_can`, 500 kbit/s, sample-point 0.875, 시작 시 `ERROR-ACTIVE` berr 0/0 |
+| STM32 source | `fc098c8` (= `main` `6972058` + 이 보고서 commit, code 차이 0)을 `git archive`로 꺼낸 clean 사본 |
+| STM32 build | Windows, STM32CubeCLT 1.19.0, preset `Release` |
+| Flasher source | `main` `6972058`의 `can-fota-BBB/flasher/` (`fc098c8`과 차이 0) |
+| Flasher build | **WSL cross build** `make CC=arm-linux-gnueabihf-gcc LDFLAGS=-static` (Ubuntu 22.04 gcc 11.4.0), warning 없음. BBB image에 `gcc`/`make`가 없어 BBB native build는 하지 않았다 (TW-03과 같은 방식) |
+
+### Build와 hash
+
+| Image | 크기 | SHA-256 | RF-01 baseline 대비 |
+| --- | --- | --- | --- |
+| Custom bootloader Release | 9,208 B / 16 KiB (56.20%), RAM 3,200 B | `0bdc8c5c6cf7855e84d7e1f4ff595ed6c3966a51ec80b8e576a6b151282b65d7` | 같음 |
+| FreeRTOS application Release | 10,284 B / 57,336 B (17.94%), RAM 5,312 B | `774b910ab288216770cd630f9c4276d8a4e9c451f998d0ea030199e7e150e234` | 같음 |
+| BBB flasher (ARM static) | — | `f564c77c6854ee34d3b989364c3d6e6659f56260499977bc7b376a6174ae92f8` | (기준 없음) |
+
+- CMake warning은 build 경로 길이(`CMAKE_OBJECT_PATH_MAX`) 경고뿐이다. 사본 경로가 길어서 생겼고 hash가 baseline과 같으므로 결과에 영향 없음.
+- 두 `.bin`이 RF-01 1·2번 이전 baseline과 byte 단위로 같으므로, 이 시험은 RF-01 변경의 regression 확인도 겸한다.
+
+### 절차
+
+1. `STM32_Programmer_CLI -c port=SWD -w <bootloader.bin> 0x08000000 -v` → verify 성공, exit 0.
+2. `STM32_Programmer_CLI -c port=SWD -w <boot_can_fw.bin> 0x08004000 -v -rst` → verify 성공, exit 0. (지정 범위만 erase. full chip erase 안 함)
+3. BBB 임시 디렉터리에 flasher, 같은 `boot_can_fw.bin`, 시험 script를 복사하고 BBB에서 hash 재확인 (위 표와 같음).
+4. 시험 script: `ip -details -statistics link show can0` 저장 → `candump -L can0` 백그라운드 시작 → `./can_fota_flasher custom boot_can_fw.bin can0` → exit code와 `/proc/uptime` 전후 저장 → `candump` 종료 → `ip -details -statistics` 다시 저장.
+5. 시험 후 SWD hotplug(core를 멈추지 않음)로 active, staging, metadata, `SCB->VTOR` 읽기.
+
+### 결과
+
+| 항목 | 값 |
+| --- | --- |
+| Command | `./can_fota_flasher custom boot_can_fw.bin can0` |
+| Exit code | `0` (`[RESULT] FOTA 성공`) |
+| 실행 시간 (flasher 출력) | 3.04 s (trace의 START `100#40…` → JUMP ACK 구간과 같음) |
+| 실행 시간 (uptime 전후) | 6.07 s (FOTA entry 후 3.0 s 대기 포함) |
+| Flasher 출력 counter | TX 1,490, RX 44, 재전송 0, ACK error 0, TX timeout 0 |
+| `candump -L` | 1,535 frame = `200#DEAD` 1 + `100#` 1,490 + `101#` 44. 응답은 모두 Standard `101#0000`(ACK), Extended 0, NACK 0, ERR 0 |
+| START | `100#402C280000` (size 0x282C = 10,284 B). ACK까지 1.23 s (erase) |
+| END | `100#80CC7B71DC` (CRC32 `0xDC717BCC`, host에서 따로 계산한 값과 같음). ACK까지 0.56 s (CRC 검사 + active copy) |
+| JUMP | `100#C0` → `101#0000` |
+| `can0` 전후 | 시험 후 `ERROR-ACTIVE` berr 0/0. TX packets 0 → 1,491, RX 0 → 44, errors/dropped/missed/bus-errors/error-pass/bus-off 모두 0 |
+| Active `0x08004000` 10,284 B readback | SHA-256 `774b910a…` (보낸 image와 같음) |
+| Staging `0x08012000` 10,284 B readback | SHA-256 `774b910a…` (같음) |
+| Metadata `0x0801FFF8` / `0x0801FFFC` | `0x0000282C` / `0xDC717BCC` |
+| `SCB->VTOR` (시험 후) | `0x08004000` (bootloader가 application으로 jump해 vector table이 application 쪽으로 바뀐 상태) |
+| LD2 (PA5) | 깜빡임 (사용자 육안 확인) |
+
+Frame 수는 계산과 맞는다. 10,284 B = 256 B block 40개(각 37 frame) + 44 B(7 frame) → DATA 1,487 + START/END/JUMP 3 = 1,490. 응답은 block ACK 41 + START/END/JUMP ACK 3 = 44. `ip -s`의 TX 1,491은 FOTA entry `200#DEAD` 1개를 더한 값이다.
+
+### 한계
+
+- 1회만 했다. 시간은 이 조건(F103, 500 kbit/s, 10,284 B, 무손실)의 참고값이며 ② F407 수치와 비교하지 않는다.
+- Flasher는 BBB native build가 아닌 WSL cross build다. Yocto image 안의 flasher 사본은 쓰지 않았다(source drift는 yocto_capston 쪽 known issue).
+- Flash 전 chip 전체를 지우지 않았다. 시험 전 staging에는 TW-03 B1 Debug image(15,388 B, 다른 내용)가 있었으므로, staging과 metadata의 readback 일치는 이번 update로 다시 써진 결과다.
+- application 동작 확인은 JUMP ACK, VTOR 값, LD2(PA5) 깜빡임(사용자 육안 확인)까지다. 주기는 재지 않았고, CAN CLI나 `ECU_READY` 출력도 측정하지 않았다.
+- BBB 시계는 RTC가 없어 틀려 있다(candump timestamp의 절대 날짜는 의미 없음, 차이만 사용).
+- 시험 log와 trace(`T1-normal.{log,candump,can0-before,can0-after,hash,result}`)는 BBB 임시 디렉터리와 WSL 작업 디렉터리에만 있고 repository에는 넣지 않았다.
 
 ## ③ README 조건·한계 표
 
