@@ -3,7 +3,7 @@
 ## 한눈에 보기
 
 - 범위(2차 축소): ① `main` clean build 후 BBB → F103 Custom 정상 update 1회 ② 이력서 성능 수치의 측정 조건·한계 확정 ③ README 조건·한계 표.
-- 진행 상태: **① PASS(2026-11-09, F103 Release, 1회)**, **② 완료(문서 분석, hardware 불필요)**. ③은 아직 하지 않았다(`NOT RUN`).
+- 진행 상태: **① PASS(2026-11-09, F103 Release, 1회)**, **② 완료(문서 분석, hardware 불필요)**, **③ 완료(README "검증 조건과 한계" 표)**.
 - ② 결론: 이력서 수치(0.1% 손실, 16.011 s → 9.362 s, 재전송 1,424.5 → 35.3)는 결과 CSV에서 그대로 재현된다. 다만 CSV를 만든 code는 실행 당시 commit되어 있지 않았고, 두 방식의 시간 경계와 재전송 counter 정의가 다르다. 수치는 아래 조건을 붙여서만 인용한다.
 
 ## ② 성능 수치의 조건과 한계
@@ -74,7 +74,7 @@ CSV를 조건별로 다시 계산했다(재현 명령은 맨 아래).
 ### 문서 반영
 
 - job_prepare 이력서 `resume-master-v1.md`, 경험 카드 `exp-20261101-02`를 위 "해도 되는 표현"에 맞게 수정했다(같은 날, job_prepare `main`).
-- README 조건·한계 표(③)에 이 절을 요약한다(`NOT RUN`).
+- README "검증 조건과 한계" 표(③)에 이 절을 요약했다.
 - 선택(하지 않음): 고정 seed와 같은 fault schedule로 재측정.
 
 ### 재현 명령
@@ -162,4 +162,4 @@ Frame 수는 계산과 맞는다. 10,284 B = 256 B block 40개(각 37 frame) + 4
 
 ## ③ README 조건·한계 표
 
-`NOT RUN`.
+완료. `README.md` "검증 조건과 한계" 절에 표 1개로 정리했다(② 인용 조건, ① 결과, TW-01~03 PASS 항목, 복사 중 reset/전원 차단·invalid image·bus-off `NOT RUN`, Selective NACK 실장 미검증, block ACK 유실 known limitation, 인증 범위 밖). 같은 commit에서 README "검증 결과"의 "hardware 재시험은 수행하지 않음" 행을 ① 결과로 바꾸고, "다음 단계"에서 끝난 항목 2개(TW-03 B, ISO-TP build 복구)를 지웠다.
